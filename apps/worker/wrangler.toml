@@ -1,0 +1,18 @@
+name = "nulla-worker"
+main = "index.ts"
+compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+JWT_SECRET = "nulla-e2ee-vault-jwt-secret-key-32-chars-minimum"
+ADMIN_API_KEY = "nulla-admin-master-secret-key-2026"
+CORS_ORIGIN = "*"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nulla-db"
+database_id = "6447de08-00b4-4ee3-9d8c-2c4adcd2924e"
+
+[[r2_buckets]]
+binding = "STORAGE_BUCKET"
+bucket_name = "nulla-vault"
