@@ -12,11 +12,12 @@ public struct SettingsView: View {
     
     @State private var email: String = ""
     @State private var password: String = ""
-    @State private var apiHost: String = "http://localhost:8787"
+    @State private var apiHost: String = "https://nulla-worker.nulla-vault.workers.dev"
     @State private var showPassword: Bool = false
     @State private var isSubmitting: Bool = false
     @State private var errorMessage: String? = nil
     @State private var successMessage: String? = nil
+    @State private var passwordNotice: String? = nil
     
     public init() {}
     
@@ -152,7 +153,7 @@ public struct SettingsView: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.secondary)
                             
-                            TextField("http://localhost:8787", text: $apiHost)
+                            TextField("https://nulla-worker.nulla-vault.workers.dev", text: $apiHost)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(size: 12, design: .monospaced))
                         }
@@ -174,7 +175,20 @@ public struct SettingsView: View {
                                 Text("Password")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(.secondary)
+                                
                                 Spacer()
+                                
+                                Button(action: generateStrongPassword) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "key.fill")
+                                            .font(.system(size: 9))
+                                        Text("Generate Strong Password")
+                                            .font(.system(size: 10, weight: .medium))
+                                    }
+                                    .foregroundColor(.green)
+                                }
+                                .buttonStyle(.plain)
+                                
                                 Button(action: { showPassword.toggle() }) {
                                     Image(systemName: showPassword ? "eye.slash" : "eye")
                                         .font(.system(size: 11))
@@ -191,6 +205,12 @@ public struct SettingsView: View {
                                 SecureField("Enter password", text: $password)
                                     .textFieldStyle(.roundedBorder)
                                     .font(.system(size: 12))
+                            }
+                            
+                            if let notice = passwordNotice {
+                                Text(notice)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.orange)
                             }
                         }
                         
@@ -237,10 +257,26 @@ public struct SettingsView: View {
         .frame(width: 420, height: 380)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
-            if let savedHost = UserDefaults.standard.string(forKey: "nulla_api_host"), !savedHost.isEmpty {
+            let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos")
+            if let savedHost = sharedDefaults?.string(forKey: "nulla_api_host"), !savedHost.isEmpty {
+                self.apiHost = savedHost
+            } else if let savedHost = UserDefaults.standard.string(forKey: "nulla_api_host"), !savedHost.isEmpty {
                 self.apiHost = savedHost
             }
         }
+    }
+    
+    private func generateStrongPassword() {
+        let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+"
+        var generated = ""
+        for _ in 0..<20 {
+            if let randomChar = chars.randomElement() {
+                generated.append(randomChar)
+            }
+        }
+        self.password = generated
+        self.showPassword = true
+        self.passwordNotice = "Make sure you save this password in your password manager."
     }
     
     private func handleUnlockVault() {
@@ -248,6 +284,10 @@ public struct SettingsView: View {
         
         isSubmitting = true
         errorMessage = nil
+        
+        let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos")
+        sharedDefaults?.set(apiHost, forKey: "nulla_api_host")
+        sharedDefaults?.synchronize()
         
         Task {
             do {

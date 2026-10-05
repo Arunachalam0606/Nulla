@@ -3,9 +3,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   encryptMetadata,
   decryptMetadata,
-  encryptChunk,
-  calculateChunkCount,
-  CHUNK_SIZE,
 } from '@nulla/crypto';
 
 import type { RawNode, DecryptedNode } from '@/schemas/node';
@@ -18,10 +15,11 @@ import {
   fetchDirectoryNodes,
   createFolderNode,
   softDeleteNode,
-  initUploadSession,
-  uploadChunkBinary,
-  completeUploadSession,
+  uploadDirectFile,
 } from '@/lib/api';
+import { generateThumbnail } from '@/lib/thumbnail';
+import { scanFileList } from '@/lib/directoryTraversal';
+import type { ScannedFile } from '@/lib/directoryTraversal';
 
 export function useExplorerLogic() {
   const token = useAuthStore((state) => state.token);
@@ -38,6 +36,7 @@ export function useExplorerLogic() {
   const isUploadDrawerOpen = useExplorerStore((state) => state.isUploadDrawerOpen);
   const uploadQueue = useExplorerStore((state) => state.uploadQueue);
   const previewNode = useExplorerStore((state) => state.previewNode);
+  const isE2eeVaultEnabled = useExplorerStore((state) => state.isE2eeVaultEnabled);
 
   const setCurrentParentId = useExplorerStore((state) => state.setCurrentParentId);
   const setBreadcrumbs = useExplorerStore((state) => state.setBreadcrumbs);
@@ -49,6 +48,7 @@ export function useExplorerLogic() {
   const setViewMode = useExplorerStore((state) => state.setViewMode);
   const setSearchQuery = useExplorerStore((state) => state.setSearchQuery);
   const setUploadDrawerOpen = useExplorerStore((state) => state.setUploadDrawerOpen);
+  const setIsE2eeVaultEnabled = useExplorerStore((state) => state.setIsE2eeVaultEnabled);
   const addUploadQueueItem = useExplorerStore((state) => state.addUploadQueueItem);
   const updateUploadQueueItem = useExplorerStore((state) => state.updateUploadQueueItem);
   const setPreviewNode = useExplorerStore((state) => state.setPreviewNode);
@@ -66,13 +66,19 @@ export function useExplorerLogic() {
 
       const decryptedPromises = rawNodes.map(async (raw) => {
         try {
-          const name = await decryptMetadata(
-            { ciphertext: raw.name_encrypted, iv: raw.name_iv },
-            masterKey
-          );
+          let name = raw.name || '';
+          if (!name && raw.name_encrypted && raw.name_iv) {
+            name = await decryptMetadata(
+              { ciphertext: raw.name_encrypted, iv: raw.name_iv },
+              masterKey
+            );
+          }
+          if (!name) {
+            name = `File_${raw.id.slice(0, 8)}`;
+          }
 
-          let mimeType: string | undefined = undefined;
-          if (raw.mime_type_encrypted) {
+          let mimeType: string | undefined = raw.mime_type || undefined;
+          if (!mimeType && raw.mime_type_encrypted && raw.name_iv) {
             try {
               mimeType = await decryptMetadata(
                 { ciphertext: raw.mime_type_encrypted, iv: raw.name_iv },
@@ -188,72 +194,103 @@ export function useExplorerLogic() {
     }
   };
 
-  const handleUploadFiles = async (files: FileList | File[]) => {
+  const handleUploadFiles = async (
+    files: FileList | File[] | ScannedFile[]
+  ) => {
     if (!token || !masterKey || !masterKeyRaw) return;
     if (isUploadingRef.current) return;
     isUploadingRef.current = true;
     setUploadDrawerOpen(true);
 
-    const fileArray = Array.from(files);
+    let items: ScannedFile[];
+    if (Array.isArray(files) && files.length > 0 && 'relativePath' in files[0]) {
+      items = files as ScannedFile[];
+    } else {
+      items = scanFileList(files as FileList | File[]);
+    }
 
-    for (const file of fileArray) {
+    const folderMap = new Map<string, string>(); // relativeFolderPath -> folderNodeId
+
+    for (const item of items) {
+      const { file, relativePath } = item;
       const uploadId = crypto.randomUUID();
-      const totalChunks = calculateChunkCount(file.size);
 
       addUploadQueueItem({
         id: uploadId,
         fileName: file.name,
         fileSize: file.size,
         progressPercentage: 0,
-        currentChunk: 0,
-        totalChunks,
-        status: 'encrypting',
+        currentChunk: 1,
+        totalChunks: 1,
+        status: 'uploading',
       });
 
       try {
-        const encName = await encryptMetadata(file.name, masterKey);
-        const encMime = file.type ? await encryptMetadata(file.type, masterKey) : undefined;
+        // Resolve nested folder hierarchy if relativePath contains subdirectories
+        let targetParentId = currentParentId;
+        const segments = relativePath.split('/').filter(Boolean);
 
-        const session = await initUploadSession(token, {
-          parent_id: currentParentId,
-          name_encrypted: encName.ciphertext,
-          name_iv: encName.iv,
-          size_bytes: file.size,
-          mime_type_encrypted: encMime?.ciphertext,
-          total_chunks: totalChunks,
-        });
+        if (segments.length > 1) {
+          const dirSegments = segments.slice(0, -1);
+          let accumulatedPath = '';
+          let parentForSegment = currentParentId;
 
-        updateUploadQueueItem(uploadId, { status: 'uploading' });
+          for (const segment of dirSegments) {
+            accumulatedPath = accumulatedPath ? `${accumulatedPath}/${segment}` : segment;
 
-        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-          const startByte = chunkIndex * CHUNK_SIZE;
-          const endByte = Math.min(startByte + CHUNK_SIZE, file.size);
-          const chunkBlob = file.slice(startByte, endByte);
-          const arrayBuffer = await chunkBlob.arrayBuffer();
-          const plaintextBytes = new Uint8Array(arrayBuffer);
+            if (folderMap.has(accumulatedPath)) {
+              parentForSegment = folderMap.get(accumulatedPath)!;
+            } else {
+              const encDir = await encryptMetadata(segment, masterKey);
+              const createdDir = await createFolderNode(
+                token,
+                parentForSegment,
+                encDir.ciphertext,
+                encDir.iv
+              );
 
-          const encryptedChunk = await encryptChunk(
-            masterKey,
-            masterKeyRaw,
-            chunkIndex,
-            plaintextBytes
-          );
+              folderMap.set(accumulatedPath, createdDir.id);
 
-          await uploadChunkBinary(
-            token,
-            session.session_id,
-            chunkIndex,
-            encryptedChunk.data
-          );
+              if (parentForSegment === currentParentId) {
+                const decryptedFolder: DecryptedNode = {
+                  id: createdDir.id,
+                  parentId: createdDir.parent_id,
+                  name: segment,
+                  type: 'folder',
+                  sizeBytes: 0,
+                  chunkCount: 0,
+                  status: 'ready',
+                  createdAt: createdDir.created_at,
+                  updatedAt: createdDir.updated_at,
+                };
+                addNode(decryptedFolder);
+              }
 
-          const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-          updateUploadQueueItem(uploadId, {
-            currentChunk: chunkIndex + 1,
-            progressPercentage: progress,
-          });
+              parentForSegment = createdDir.id;
+            }
+          }
+          targetParentId = parentForSegment;
         }
 
-        const committed = await completeUploadSession(token, session.session_id);
+        // Generate instant 256x256 WebP thumbnail for media
+        const thumbBlob = await generateThumbnail(file);
+
+        // Direct Cloudflare R2 native stream upload (Helumi architecture)
+        updateUploadQueueItem(uploadId, { status: 'uploading', progressPercentage: 10 });
+
+        const rawResult = await uploadDirectFile(
+          token,
+          file,
+          targetParentId,
+          thumbBlob,
+          (progress) => {
+            updateUploadQueueItem(uploadId, {
+              status: 'uploading',
+              progressPercentage: progress,
+            });
+          }
+        );
+
         updateUserUsage(file.size);
 
         updateUploadQueueItem(uploadId, {
@@ -261,20 +298,21 @@ export function useExplorerLogic() {
           progressPercentage: 100,
         });
 
-        const decryptedCommitted: DecryptedNode = {
-          id: committed.id,
-          parentId: committed.parent_id,
-          name: file.name,
-          type: 'file',
-          sizeBytes: file.size,
-          mimeType: file.type || 'application/octet-stream',
-          chunkCount: totalChunks,
-          status: 'ready',
-          createdAt: committed.created_at,
-          updatedAt: committed.updated_at,
-        };
-
-        addNode(decryptedCommitted);
+        if (targetParentId === currentParentId) {
+          const decryptedDirectNode: DecryptedNode = {
+            id: rawResult.id,
+            parentId: rawResult.parent_id,
+            name: rawResult.name || file.name,
+            type: 'file',
+            sizeBytes: file.size,
+            mimeType: file.type || 'application/octet-stream',
+            chunkCount: 1,
+            status: 'ready',
+            createdAt: rawResult.created_at,
+            updatedAt: rawResult.updated_at,
+          };
+          addNode(decryptedDirectNode);
+        }
       } catch (uploadErr: unknown) {
         const errorMsg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
         updateUploadQueueItem(uploadId, {
@@ -301,12 +339,14 @@ export function useExplorerLogic() {
     isUploadDrawerOpen,
     uploadQueue,
     previewNode,
+    isE2eeVaultEnabled,
     isLoading,
     error,
     setSelectedNodeId,
     setViewMode,
     setSearchQuery,
     setUploadDrawerOpen,
+    setIsE2eeVaultEnabled,
     setPreviewNode,
     handleCreateFolder,
     handleNavigateToFolder,

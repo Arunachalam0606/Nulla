@@ -49,10 +49,16 @@ export default function TrashPage() {
       const decrypted = await Promise.all(
         rawNodes.map(async (raw: RawNode) => {
           try {
-            const name = await decryptMetadata(
-              { ciphertext: raw.name_encrypted, iv: raw.name_iv },
-              masterKey
-            );
+            let name = raw.name || '';
+            if (!name && raw.name_encrypted && raw.name_iv) {
+              name = await decryptMetadata(
+                { ciphertext: raw.name_encrypted, iv: raw.name_iv },
+                masterKey
+              );
+            }
+            if (!name) {
+              name = `File_${raw.id.slice(0, 8)}`;
+            }
             return {
               id: raw.id,
               parentId: raw.parent_id,

@@ -1,8 +1,8 @@
-import { useState } from 'react';
-
 import type { DecryptedNode } from '@/schemas/node';
 
-import { formatBytes, formatRelativeDate } from '@/lib/utils';
+import { NodeCard } from '@/components/explorer/NodeCard';
+
+import { formatBytes } from '@/lib/utils';
 
 import {
   FolderIcon,
@@ -67,15 +67,15 @@ export const NodeList = (props: NodeListProps) => {
   if (filteredNodes.length === 0) {
     return (
       <section className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-12 h-12 rounded-full border border-[#222222] bg-[#0c0c0c] flex items-center justify-center text-[#555555] mb-3">
+        <div className="w-12 h-12 rounded-full border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-[#1f1f23] flex items-center justify-center text-neutral-400 mb-3 shadow-inner">
           <FolderIcon size={22} />
         </div>
 
-        <p className="text-sm text-[#888888] font-medium">
+        <p className="text-sm text-neutral-700 dark:text-neutral-300 font-medium">
           <span>This folder is empty</span>
         </p>
 
-        <p className="text-xs text-[#555555] mt-1 max-w-sm">
+        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 max-w-sm">
           <span>Drag and drop 4K media or archives to stream them with 0 bytes local disk footprint.</span>
         </p>
       </section>
@@ -84,8 +84,8 @@ export const NodeList = (props: NodeListProps) => {
 
   if (viewMode === 'list') {
     return (
-      <section className="w-full">
-        <div className="grid grid-cols-12 text-[11px] font-mono uppercase tracking-wider text-[#666666] border-b border-[#1b1b1b] pb-2 px-3">
+      <section className="w-full bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 rounded-2xl p-2 shadow-sm">
+        <div className="grid grid-cols-12 text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 border-b border-black/5 dark:border-white/5 pb-2.5 px-3 pt-1">
           <div className="col-span-6">
             <span>Name</span>
           </div>
@@ -103,7 +103,7 @@ export const NodeList = (props: NodeListProps) => {
           </div>
         </div>
 
-        <div className="divide-y divide-[#141414]">
+        <div className="divide-y divide-black/5 dark:divide-white/5">
           {filteredNodes.map((node) => {
             const Icon = getFileIcon(node);
             const isFolder = node.type === 'folder';
@@ -111,38 +111,39 @@ export const NodeList = (props: NodeListProps) => {
             return (
               <div
                 key={node.id}
-                className="grid grid-cols-12 items-center px-3 py-2.5 hover:bg-[#111111] transition-colors rounded-md group text-xs"
+                className="grid grid-cols-12 items-center px-3 py-2.5 hover:bg-neutral-50 dark:hover:bg-white/[0.03] transition-colors rounded-xl group text-xs"
               >
                 <div
                   onClick={() => (isFolder ? onNavigateToFolder(node) : onPreviewFile(node))}
                   className="col-span-6 flex items-center gap-3 cursor-pointer overflow-hidden pr-4"
                 >
-                  <Icon
-                    size={18}
-                    className={isFolder ? 'text-amber-400 shrink-0' : 'text-[#888888] shrink-0'}
-                  />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    isFolder ? 'bg-amber-500/10 text-amber-500' : 'bg-neutral-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300'
+                  }`}>
+                    <Icon size={16} />
+                  </div>
 
-                  <span className="truncate text-white hover:underline underline-offset-2">
+                  <span className="truncate text-neutral-900 dark:text-white font-medium hover:underline underline-offset-2">
                     {node.name}
                   </span>
                 </div>
 
-                <div className="col-span-2 text-[#888888] font-mono text-[11px]">
+                <div className="col-span-2 text-neutral-500 dark:text-neutral-400 font-mono text-[11px]">
                   <span>{isFolder ? '—' : formatBytes(node.sizeBytes)}</span>
                 </div>
 
-                <div className="col-span-2 flex items-center gap-1.5 text-emerald-400 font-mono text-[11px]">
+                <div className="col-span-2 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-mono text-[11px] font-medium">
                   <CloudCheckIcon size={14} />
 
                   <span>0 B</span>
                 </div>
 
-                <div className="col-span-2 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="col-span-2 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   {!isFolder && (
                     <button
                       onClick={() => onPreviewFile(node)}
                       title="Instant Decrypt Preview"
-                      className="p-1 hover:bg-[#222222] rounded text-[#888888] hover:text-white"
+                      className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-full text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
                     >
                       <EyeIcon size={14} />
                     </button>
@@ -152,7 +153,7 @@ export const NodeList = (props: NodeListProps) => {
                     <button
                       onClick={() => onShareNode(node)}
                       title="Create E2EE Share Link"
-                      className="p-1 hover:bg-[#222222] rounded text-[#888888] hover:text-white"
+                      className="p-1.5 hover:bg-neutral-200 dark:hover:bg-white/10 rounded-full text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
                     >
                       <ShareNetworkIcon size={14} />
                     </button>
@@ -161,7 +162,7 @@ export const NodeList = (props: NodeListProps) => {
                   <button
                     onClick={() => onDeleteNode(node.id)}
                     title="Move to Trash"
-                    className="p-1 hover:bg-[#222222] rounded text-[#888888] hover:text-red-400"
+                    className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full text-neutral-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                   >
                     <TrashIcon size={14} />
                   </button>
@@ -176,65 +177,17 @@ export const NodeList = (props: NodeListProps) => {
 
   // Grid View
   return (
-    <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+    <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
       {filteredNodes.map((node) => {
-        const Icon = getFileIcon(node);
-        const isFolder = node.type === 'folder';
-
         return (
-          <div
+          <NodeCard
             key={node.id}
-            className="group relative bg-[#0a0a0a] border border-[#1b1b1b] hover:border-[#333333] hover:bg-[#101010] p-3 rounded-lg transition-all flex flex-col justify-between h-36 cursor-pointer"
-            onClick={() => (isFolder ? onNavigateToFolder(node) : onPreviewFile(node))}
-          >
-            <div className="flex items-start justify-between">
-              <div
-                className={`w-9 h-9 rounded-md flex items-center justify-center ${
-                  isFolder ? 'bg-amber-500/10 text-amber-400' : 'bg-[#181818] text-[#cccccc]'
-                }`}
-              >
-                <Icon size={20} />
-              </div>
-
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {!isFolder && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShareNode(node);
-                    }}
-                    title="Share E2EE Link"
-                    className="p-1 hover:bg-[#242424] rounded text-[#777777] hover:text-white"
-                  >
-                    <ShareNetworkIcon size={13} />
-                  </button>
-                )}
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteNode(node.id);
-                  }}
-                  title="Move to Trash"
-                  className="p-1 hover:bg-[#242424] rounded text-[#777777] hover:text-red-400"
-                >
-                  <TrashIcon size={13} />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-white truncate group-hover:text-emerald-300 transition-colors">
-                <span>{node.name}</span>
-              </p>
-
-              <div className="flex items-center justify-between text-[10px] text-[#71717a] font-mono mt-1">
-                <span>{isFolder ? 'Folder' : formatBytes(node.sizeBytes)}</span>
-
-                <span className="text-emerald-400">0 B Local</span>
-              </div>
-            </div>
-          </div>
+            node={node}
+            onNavigateToFolder={onNavigateToFolder}
+            onPreviewFile={onPreviewFile}
+            onDeleteNode={onDeleteNode}
+            onShareNode={onShareNode}
+          />
         );
       })}
     </section>

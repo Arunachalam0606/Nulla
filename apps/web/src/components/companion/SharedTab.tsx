@@ -6,8 +6,6 @@ import {
   CheckIcon,
   CopyIcon,
   ShieldCheckIcon,
-  ClockIcon,
-  PlusIcon,
 } from '@phosphor-icons/react';
 
 interface SharedTabProps {
@@ -18,7 +16,12 @@ interface SharedTabProps {
 }
 
 export const SharedTab = (props: SharedTabProps) => {
-  const { subTab, onTabChange, token, masterKeyHex } = props;
+  const {
+    subTab,
+    onTabChange,
+    token,
+    masterKeyHex,
+  } = props;
 
   const defaultCopiedIndex = null;
   const [copiedIndex, setCopiedIndex] = useState<number | null>(defaultCopiedIndex);
@@ -64,13 +67,13 @@ export const SharedTab = (props: SharedTabProps) => {
 
   return (
     <section className="flex flex-col gap-6 max-w-4xl w-full">
-      <div className="flex items-center gap-2 border-b border-[#1b1b1b] pb-3">
+      <div className="flex items-center gap-1.5 p-1 bg-neutral-100 dark:bg-black/20 border border-black/5 dark:border-white/10 rounded-full w-fit">
         <button
           onClick={() => onTabChange('links')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
             subTab === 'links'
-              ? 'bg-[#1c1c1c] text-white'
-              : 'text-[#777777] hover:text-white'
+              ? 'bg-white dark:bg-[#1f1f23] text-neutral-900 dark:text-white shadow-sm font-semibold'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
           }`}
         >
           <LinkSimpleIcon size={14} />
@@ -80,10 +83,10 @@ export const SharedTab = (props: SharedTabProps) => {
 
         <button
           onClick={() => onTabChange('requests')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
             subTab === 'requests'
-              ? 'bg-[#1c1c1c] text-white'
-              : 'text-[#777777] hover:text-white'
+              ? 'bg-white dark:bg-[#1f1f23] text-neutral-900 dark:text-white shadow-sm font-semibold'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
           }`}
         >
           <TrayIcon size={14} />
@@ -94,39 +97,43 @@ export const SharedTab = (props: SharedTabProps) => {
 
       {subTab === 'links' && (
         <div className="flex flex-col gap-6">
-          <div className="bg-[#0e0e0e] border border-[#222222] p-4 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ShieldCheckIcon size={20} className="text-emerald-400 shrink-0" />
+          <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <ShieldCheckIcon size={20} />
+              </div>
 
               <div className="flex flex-col">
-                <span className="text-xs font-semibold text-white">Zero-Knowledge Links</span>
+                <span className="text-xs font-semibold text-neutral-900 dark:text-white">
+                  Zero-Knowledge Public Links
+                </span>
 
-                <span className="text-[11px] text-[#71717a]">
-                  Decryption keys reside strictly in the URL fragment (<code className="text-emerald-400 font-mono">#key</code>) and are never disclosed to the cloud.
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Decryption keys reside strictly in the URL fragment (<code className="text-emerald-600 dark:text-emerald-400 font-mono font-medium">#key</code>) and are never disclosed to the cloud.
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="border border-[#1e1e1e] rounded-2xl bg-[#0a0a0a] overflow-hidden">
-            <div className="p-4 border-b border-[#181818] flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-white font-mono uppercase tracking-wider">
+          <div className="border border-black/5 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1f1f23] shadow-sm overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
                 <span>Active Share Links Created from Finder & Web</span>
               </h3>
             </div>
 
-            <div className="divide-y divide-[#161616]">
+            <div className="divide-y divide-black/5 dark:divide-white/5">
               {mockSharedLinks.map((item, index) => (
-                <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#0d0d0d] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#141414] border border-[#222222] flex items-center justify-center text-white">
-                      <LinkSimpleIcon size={16} />
+                <div key={item.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-neutral-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-[#28282d] border border-black/5 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-200 shadow-sm">
+                      <LinkSimpleIcon size={18} />
                     </div>
 
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-medium text-white">{item.name}</span>
+                      <span className="text-xs font-medium text-neutral-900 dark:text-white">{item.name}</span>
 
-                      <div className="flex items-center gap-2 text-[11px] text-[#71717a] font-mono">
+                      <div className="flex items-center gap-2 text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
                         <span className="capitalize">{item.permission}</span>
 
                         <span>•</span>
@@ -142,7 +149,7 @@ export const SharedTab = (props: SharedTabProps) => {
 
                   <button
                     onClick={() => handleCopyLink(index, item.token)}
-                    className="flex items-center gap-1.5 bg-[#141414] hover:bg-[#1f1f1f] border border-[#262626] text-xs text-white px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 text-xs px-3.5 py-1.5 rounded-full transition-all font-medium shadow-sm"
                   >
                     {copiedIndex === index ? <CheckIcon size={12} className="text-emerald-400" /> : <CopyIcon size={12} />}
 
@@ -157,31 +164,31 @@ export const SharedTab = (props: SharedTabProps) => {
 
       {subTab === 'requests' && (
         <div className="flex flex-col gap-6">
-          <div className="border border-[#1e1e1e] rounded-2xl bg-[#0a0a0a] overflow-hidden">
-            <div className="p-4 border-b border-[#181818] flex items-center justify-between">
+          <div className="border border-black/5 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1f1f23] shadow-sm overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-semibold text-white font-mono uppercase tracking-wider">
+                <h3 className="text-xs font-semibold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
                   <span>File Drop Requests</span>
                 </h3>
 
-                <p className="text-xs text-[#71717a] mt-0.5">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   <span>Allow external contributors to upload files directly into your encrypted folder.</span>
                 </p>
               </div>
             </div>
 
-            <div className="divide-y divide-[#161616]">
+            <div className="divide-y divide-black/5 dark:divide-white/5">
               {mockFileRequests.map((req) => (
-                <div key={req.id} className="p-4 flex items-center justify-between hover:bg-[#0d0d0d] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#141414] border border-[#222222] flex items-center justify-center text-white">
-                      <TrayIcon size={16} />
+                <div key={req.id} className="p-4 sm:p-5 flex items-center justify-between hover:bg-neutral-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-[#28282d] border border-black/5 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-200 shadow-sm">
+                      <TrayIcon size={18} />
                     </div>
 
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-medium text-white">{req.title}</span>
+                      <span className="text-xs font-medium text-neutral-900 dark:text-white">{req.title}</span>
 
-                      <div className="flex items-center gap-2 text-[11px] text-[#71717a] font-mono">
+                      <div className="flex items-center gap-2 text-[11px] text-neutral-500 dark:text-neutral-400 font-mono">
                         <span>Destination: {req.destination}</span>
 
                         <span>•</span>
@@ -191,7 +198,7 @@ export const SharedTab = (props: SharedTabProps) => {
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">
                     Active Drop
                   </span>
                 </div>

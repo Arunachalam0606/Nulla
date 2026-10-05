@@ -64,6 +64,38 @@ export async function loginAccount(payload: {
   return parsed.data;
 }
 
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; message: string; reset_token?: string; reset_url?: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error((data as { error?: string }).error || 'Failed to request password reset');
+  }
+  return data;
+}
+
+export async function completePasswordReset(payload: {
+  token: string;
+  new_server_auth_key: string;
+  new_salt: string;
+}): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error((data as { error?: string }).error || 'Failed to reset password');
+  }
+  return data;
+}
+
 export async function fetchDirectoryNodes(
   token: string,
   parentId: string | null = null,
@@ -227,6 +259,289 @@ export async function completeUploadSession(token: string, sessionId: string) {
   return parsed.data;
 }
 
+export async function createNodeRecord(
+  token: string,
+  payload: {
+    name: string;
+    parent_id: string | null;
+    mime_type?: string;
+    size_bytes?: number;
+    name_encrypted?: string;
+    name_iv?: string;
+  }
+) {
+  const response = await fetch(`${API_BASE_URL}/api/nodes`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || `Failed to create file record (HTTP ${response.status})`);
+  }
+
+  const data = await response.json();
+  const parsed = rawNodeSchema.safeParse(data.node);
+  if (!parsed.success) {
+    throw new Error('Created node failed validation');
+  }
+  return parsed.data;
+}
+
+export function uploadNodeBinaryContent(
+  token: string,
+  nodeId: string,
+  file: File | Blob,
+  onProgress?: (percentage: number) => void
+): Promise<{ success: boolean; size: number }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${API_BASE_URL}/api/nodes/${nodeId}/content`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        // Map upload progress from 10% to 100%
+        const percent = Math.round((event.loaded / event.total) * 90) + 10;
+        onProgress(Math.min(99, percent));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          if (onProgress) onProgress(100);
+          resolve(res);
+        } catch {
+          resolve({ success: true, size: file.size });
+        }
+      } else {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          reject(new Error(res.error || `Upload failed with HTTP ${xhr.status}`));
+        } catch {
+          reject(new Error(`Upload failed with HTTP ${xhr.status}: ${xhr.statusText}`));
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('Network error during R2 stream upload'));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error('R2 stream upload timed out'));
+    };
+
+    xhr.send(file);
+  });
+}
+
+export async function initMultipartUpload(token: string, nodeId: string, mimeType?: string) {
+  const response = await fetch(`${API_BASE_URL}/api/upload/multipart/init`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ node_id: nodeId, mime_type: mimeType }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'Failed to initialize multipart upload');
+  }
+
+  return (await response.json()) as { uploadId: string; key: string };
+}
+
+export function uploadMultipartPart(
+  token: string,
+  uploadId: string,
+  key: string,
+  partNumber: number,
+  chunk: Blob,
+  onProgress?: (loaded: number) => void
+): Promise<{ etag: string; partNumber: number }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const query = new URLSearchParams({
+      uploadId,
+      key,
+      partNumber: String(partNumber),
+    });
+
+    xhr.open('PUT', `${API_BASE_URL}/api/upload/multipart/part?${query.toString()}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(event.loaded);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          resolve(res);
+        } catch {
+          reject(new Error('Invalid JSON response from multipart part upload'));
+        }
+      } else {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          reject(new Error(res.error || `Part ${partNumber} failed with HTTP ${xhr.status}`));
+        } catch {
+          reject(new Error(`Part ${partNumber} failed with HTTP ${xhr.status}`));
+        }
+      }
+    };
+
+    xhr.onerror = () => reject(new Error(`Network error uploading part ${partNumber}`));
+    xhr.ontimeout = () => reject(new Error(`Timeout uploading part ${partNumber}`));
+    xhr.send(chunk);
+  });
+}
+
+export async function completeMultipartUpload(
+  token: string,
+  uploadId: string,
+  key: string,
+  parts: Array<{ etag: string; partNumber: number }>,
+  nodeId: string,
+  sizeBytes: number
+) {
+  const response = await fetch(`${API_BASE_URL}/api/upload/multipart/complete`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      uploadId,
+      key,
+      parts,
+      node_id: nodeId,
+      size_bytes: sizeBytes,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || 'Failed to complete multipart upload');
+  }
+
+  return await response.json();
+}
+
+export async function uploadDirectFile(
+  token: string,
+  file: File,
+  parentId: string | null = null,
+  thumbnailBlob?: Blob | null,
+  onProgress?: (percentage: number) => void
+) {
+  // 1. Create node in D1 (sets progress to 5%)
+  if (onProgress) onProgress(5);
+  const node = await createNodeRecord(token, {
+    name: file.name,
+    parent_id: parentId,
+    mime_type: file.type || 'application/octet-stream',
+    size_bytes: file.size,
+  });
+
+  // 2. Decide between single-request streaming (<= 50 MB) and R2 multipart (> 50 MB)
+  const MULTIPART_THRESHOLD = 50 * 1024 * 1024; // 50 MB
+  if (file.size <= MULTIPART_THRESHOLD) {
+    await uploadNodeBinaryContent(token, node.id, file, onProgress);
+  } else {
+    // 3. R2 Multipart for Large Files (e.g. 459.9 MB movie)
+    const PART_SIZE = 10 * 1024 * 1024; // 10 MB per part
+    const totalParts = Math.ceil(file.size / PART_SIZE);
+
+    if (onProgress) onProgress(8);
+    const { uploadId, key } = await initMultipartUpload(token, node.id, file.type);
+
+    const parts: Array<{ etag: string; partNumber: number }> = [];
+    const partLoadedMap = new Map<number, number>();
+
+    const updateOverallProgress = () => {
+      if (!onProgress) return;
+      let totalLoaded = 0;
+      partLoadedMap.forEach((bytes) => {
+        totalLoaded += bytes;
+      });
+      const percentage = Math.min(95, Math.round((totalLoaded / file.size) * 85) + 10);
+      onProgress(percentage);
+    };
+
+    // Concurrency pool with 3 parallel workers
+    const concurrency = 3;
+    const partIndices: number[] = [];
+    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+      partIndices.push(partNumber);
+    }
+
+    let currentIndex = 0;
+    const worker = async () => {
+      while (currentIndex < partIndices.length) {
+        const partNumber = partIndices[currentIndex++];
+        const start = (partNumber - 1) * PART_SIZE;
+        const end = Math.min(start + PART_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        const result = await uploadMultipartPart(
+          token,
+          uploadId,
+          key,
+          partNumber,
+          chunkBlob,
+          (loaded) => {
+            partLoadedMap.set(partNumber, loaded);
+            updateOverallProgress();
+          }
+        );
+
+        partLoadedMap.set(partNumber, chunkBlob.size);
+        updateOverallProgress();
+        parts.push(result);
+      }
+    };
+
+    const workers: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(concurrency, totalParts); i++) {
+      workers.push(worker());
+    }
+    await Promise.all(workers);
+
+    // Sort parts by partNumber ascending before completing
+    parts.sort((a, b) => a.partNumber - b.partNumber);
+
+    if (onProgress) onProgress(98);
+    await completeMultipartUpload(token, uploadId, key, parts, node.id, file.size);
+    if (onProgress) onProgress(100);
+  }
+
+  // Optional: Upload generated WebP thumbnail if available
+  if (thumbnailBlob) {
+    uploadNodeThumbnail(token, node.id, thumbnailBlob).catch(() => {});
+  }
+
+  return {
+    ...node,
+    size_bytes: file.size,
+    status: 'ready' as const,
+  };
+}
+
 export async function fetchNodeChunks(token: string, nodeId: string) {
   const response = await fetch(`${API_BASE_URL}/api/nodes/${nodeId}/chunks`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -356,4 +671,20 @@ export async function fetchAdminTelemetryData(token?: string, adminKey?: string)
   const parsed = adminTelemetrySchema.safeParse(data);
   if (!parsed.success) throw new Error('Admin telemetry response failed validation');
   return parsed.data;
+}
+
+export async function uploadNodeThumbnail(token: string, nodeId: string, thumbnail: Blob): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/nodes/${nodeId}/thumbnail`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'image/webp',
+      },
+      body: thumbnail,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }

@@ -43,11 +43,11 @@ cat << 'EOF' > "$APP_ENTITLEMENTS"
 <dict>
     <key>com.apple.security.get-task-allow</key>
     <true/>
-    <key>com.apple.security.app-sandbox</key>
-    <true/>
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
     <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
     <true/>
     <key>com.apple.security.application-groups</key>
     <array>
@@ -106,13 +106,18 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$APP_PLUGINS"
 mkdir -p "$EXTENSION_MACOS" "$EXTENSION_RESOURCES"
 
-# 4. Copy binaries
-echo "==> Installing binaries..."
+# 4. Copy binaries & branded resources
+echo "==> Installing binaries & resources..."
 cp "$PRODUCTS_DIR/NullaApp" "$APP_MACOS/NullaApp"
 chmod +x "$APP_MACOS/NullaApp"
 
 cp "$PRODUCTS_DIR/NullaExtension" "$EXTENSION_MACOS/NullaExtension"
 chmod +x "$EXTENSION_MACOS/NullaExtension"
+
+if [ -f "$MACOS_DIR/Resources/Nulla.icns" ]; then
+    echo "==> Copying branded application icon..."
+    cp "$MACOS_DIR/Resources/Nulla.icns" "$APP_RESOURCES/Nulla.icns"
+fi
 
 # 5. Generate App Info.plist
 echo "==> Generating $APP_NAME Info.plist..."
@@ -125,6 +130,10 @@ cat << 'EOF' > "$APP_CONTENTS/Info.plist"
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>NullaApp</string>
+    <key>CFBundleIconFile</key>
+    <string>Nulla</string>
+    <key>CFBundleIconName</key>
+    <string>Nulla</string>
     <key>CFBundleIdentifier</key>
     <string>app.nulla.macos</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -232,7 +241,7 @@ fi
 # 11. Restart running Nulla app instance
 echo "==> Refreshing Nulla app instance..."
 pkill -f NullaApp 2>/dev/null || true
-open /Applications/Nulla.app
+open /Applications/Nulla.app 2>/dev/null || true
 
 echo "=========================================================="
 echo " [Nulla] Build & Installation Successful!"

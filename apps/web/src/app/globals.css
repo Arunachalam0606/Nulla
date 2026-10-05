@@ -1,13 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #050505;
-  --foreground: #f4f4f5;
-  --border: #1a1a1a;
-  --surface: #0a0a0a;
-  --surface-hover: #121212;
-  --muted: #71717a;
-  --accent: #ffffff;
+  --background: #fbfbfd;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --muted: #6e6e73;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #161618;
+    --foreground: #f4f4f5;
+    --card: #1f1f23;
+    --card-border: rgba(255, 255, 255, 0.08);
+    --muted: #86868b;
+  }
 }
 
 body {
@@ -19,26 +27,33 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Bespoke Minimalist Scrollbars */
+/* Minimalist Scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #222222;
+  background: rgba(120, 120, 128, 0.2);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #333333;
+  background: rgba(120, 120, 128, 0.4);
 }
 
 ::selection {
-  background: #ffffff;
-  color: #000000;
+  background: #000000;
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::selection {
+    background: #ffffff;
+    color: #000000;
+  }
 }

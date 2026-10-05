@@ -3,17 +3,29 @@
 <plist version="1.0">
 <dict>
 	<key>files</key>
-	<dict/>
+	<dict>
+		<key>Resources/Nulla.icns</key>
+		<data>
+		iJNkhme4pY10y96OTfHnpv+stss=
+		</data>
+	</dict>
 	<key>files2</key>
 	<dict>
 		<key>PlugIns/NullaExtension.appex</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			nuoEFQ6qUKLFlT6fAj30nuniRFQ=
+			A4TBQiGLtBNuWhLurspZOB8Qa/4=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"9eea04150eaa50a2c5953e9f023df49ee9e24454"</string>
+			<string>cdhash H"0384c142218bb4136e5a12eeaeca59381f106bfe"</string>
+		</dict>
+		<key>Resources/Nulla.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			L7bO2HJqqoALDUObvkTZVMubWoM3JDjtS2LkRze5V2A=
+			</data>
 		</dict>
 	</dict>
 	<key>rules</key>

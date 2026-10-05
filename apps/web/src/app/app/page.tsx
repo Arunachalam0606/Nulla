@@ -20,6 +20,7 @@ import { UploadDrawer } from '@/components/explorer/UploadDrawer';
 import { MediaPreviewModal } from '@/components/explorer/MediaPreviewModal';
 
 import { createShareLink } from '@/lib/api';
+import { scanDataTransferItems, scanFileList } from '@/lib/directoryTraversal';
 
 import {
   UserCircleIcon,
@@ -31,6 +32,7 @@ import {
   ShieldCheckIcon,
   CircleNotchIcon,
   UploadSimpleIcon,
+  FolderIcon,
   FolderPlusIcon,
   SquaresFourIcon,
   ListDashesIcon,
@@ -78,8 +80,10 @@ export default function CompanionAppPage() {
     isUploadDrawerOpen,
     uploadQueue,
     previewNode,
+    isE2eeVaultEnabled,
     setViewMode,
     setUploadDrawerOpen,
+    setIsE2eeVaultEnabled,
     setPreviewNode,
     handleCreateFolder,
     handleNavigateToFolder,
@@ -89,6 +93,7 @@ export default function CompanionAppPage() {
   } = useExplorerLogic();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const defaultIsNewFolderOpen = false;
   const defaultFolderName = '';
@@ -118,9 +123,22 @@ export default function CompanionAppPage() {
     fileInputRef.current?.click();
   };
 
+  const handleUploadFolderClick = () => {
+    folderInputRef.current?.click();
+  };
+
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       handleUploadFiles(event.target.files);
+      event.target.value = '';
+    }
+  };
+
+  const handleFolderInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const scanned = scanFileList(event.target.files);
+      handleUploadFiles(scanned);
+      event.target.value = '';
     }
   };
 
@@ -128,10 +146,18 @@ export default function CompanionAppPage() {
     event.preventDefault();
   };
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault();
+    if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
+      const scanned = await scanDataTransferItems(event.dataTransfer.items);
+      if (scanned.length > 0) {
+        handleUploadFiles(scanned);
+        return;
+      }
+    }
     if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
-      handleUploadFiles(event.dataTransfer.files);
+      const scanned = scanFileList(event.dataTransfer.files);
+      handleUploadFiles(scanned);
     }
   };
 
@@ -156,11 +182,11 @@ export default function CompanionAppPage() {
 
   if (!isRehydrated) {
     return (
-      <section className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6">
+      <section className="min-h-screen bg-[#fbfbfd] dark:bg-[#161618] flex flex-col items-center justify-center p-6 transition-colors">
         <div className="flex flex-col items-center gap-3">
-          <CircleNotchIcon size={32} className="text-white animate-spin" />
+          <CircleNotchIcon size={32} className="text-neutral-900 dark:text-white animate-spin" />
 
-          <span className="text-xs font-mono text-[#71717a]">
+          <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
             Loading Nulla Secure Session...
           </span>
         </div>
@@ -170,22 +196,22 @@ export default function CompanionAppPage() {
 
   if (!isAuthenticated) {
     return (
-      <section className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-[#111111] border border-[#222222] flex items-center justify-center text-white mb-4">
-          <ShieldCheckIcon size={24} />
+      <section className="min-h-screen bg-[#fbfbfd] dark:bg-[#161618] flex flex-col items-center justify-center p-6 text-center transition-colors">
+        <div className="w-14 h-14 rounded-2xl bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 shadow-md flex items-center justify-center text-neutral-900 dark:text-white mb-4">
+          <ShieldCheckIcon size={26} />
         </div>
 
-        <h1 className="text-lg font-bold text-white tracking-tight">
+        <h1 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">
           <span>Vault Locked</span>
         </h1>
 
-        <p className="text-xs text-[#71717a] mt-1 max-w-sm">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 max-w-sm leading-relaxed">
           <span>Your encryption keys are not loaded in memory. Authenticate to unlock and decrypt your files.</span>
         </p>
 
         <Link
           href="/login"
-          className="mt-6 bg-white text-black text-xs font-semibold px-4 py-2 rounded-lg hover:bg-neutral-200 transition-colors"
+          className="mt-6 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold px-5 py-2.5 rounded-full shadow-sm hover:opacity-90 transition-all"
         >
           <span>Unlock Nulla Vault</span>
         </Link>
@@ -194,107 +220,17 @@ export default function CompanionAppPage() {
   }
 
   return (
-    <section className="min-h-screen bg-[#050505] flex flex-col">
+    <section className="min-h-screen bg-[#fbfbfd] dark:bg-[#161618] text-neutral-900 dark:text-neutral-100 flex flex-col pb-28 transition-colors">
       <Header />
 
-      <div className="border-b border-[#1a1a1a] bg-[#070707] px-6 sticky top-14 z-10">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-1 overflow-x-auto py-2">
-            <button
-              onClick={() => setActiveTab('account')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'account'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <UserCircleIcon size={16} />
-
-              <span>Account</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('files')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'files'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <HardDrivesIcon size={16} />
-
-              <span>Files</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('plan')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'plan'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <CrownIcon size={16} />
-
-              <span>Plan</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('shared')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'shared'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <ShareNetworkIcon size={16} />
-
-              <span>Shared</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'settings'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <GearIcon size={16} />
-
-              <span>Settings</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('deleted')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'deleted'
-                  ? 'bg-[#181818] text-white font-semibold shadow-sm'
-                  : 'text-[#777777] hover:text-white'
-              }`}
-            >
-              <TrashIcon size={16} />
-
-              <span>Deleted</span>
-            </button>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-[#71717a]">
-            <span>Mac Native Drive:</span>
-
-            <span className="text-emerald-400 font-semibold">Mounted</span>
-          </div>
-        </div>
-      </div>
-
       {statusMessage && (
-        <div className="bg-emerald-950/40 border-b border-emerald-900/50 px-6 py-2 text-xs text-emerald-400 font-mono text-center">
+        <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-6 py-2 text-xs text-emerald-600 dark:text-emerald-400 font-mono text-center">
           <span>{statusMessage}</span>
         </div>
       )}
 
       {errorMessage && (
-        <div className="bg-red-950/40 border-b border-red-900/50 px-6 py-2 text-xs text-red-400 font-mono text-center">
+        <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 text-xs text-red-600 dark:text-red-400 font-mono text-center">
           <span>{errorMessage}</span>
         </div>
       )}
@@ -326,10 +262,12 @@ export default function CompanionAppPage() {
             stream4k={stream4k}
             notifications={notifications}
             finderBadges={finderBadges}
+            e2eeVaultEnabled={isE2eeVaultEnabled}
             onToggleHardwareAccel={setHardwareAccel}
             onToggleStream4k={setStream4k}
             onToggleNotifications={setNotifications}
             onToggleFinderBadges={setFinderBadges}
+            onToggleE2eeVault={setIsE2eeVaultEnabled}
             onSignOutBrowser={handleSignOutBrowser}
             masterKeyHex={masterKeyHex}
             userEmail={user?.email}
@@ -351,16 +289,18 @@ export default function CompanionAppPage() {
             onDrop={handleDrop}
             className="flex flex-col flex-1"
           >
-            <div className="flex items-center justify-between border-b border-[#181818] pb-4 mb-6">
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-6">
               <Breadcrumbs breadcrumbs={breadcrumbs} onNavigate={handleNavigateBreadcrumb} />
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center bg-[#0d0d0d] border border-[#222222] rounded-lg p-0.5">
+                <div className="flex items-center bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 rounded-full p-1 shadow-sm">
                   <button
                     onClick={() => setViewMode('grid')}
                     title="Grid View"
-                    className={`p-1.5 rounded text-xs transition-colors ${
-                      viewMode === 'grid' ? 'bg-[#222222] text-white' : 'text-[#777777] hover:text-white'
+                    className={`p-1.5 rounded-full text-xs transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
+                        : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                     }`}
                   >
                     <SquaresFourIcon size={14} />
@@ -369,8 +309,10 @@ export default function CompanionAppPage() {
                   <button
                     onClick={() => setViewMode('list')}
                     title="List View"
-                    className={`p-1.5 rounded text-xs transition-colors ${
-                      viewMode === 'list' ? 'bg-[#222222] text-white' : 'text-[#777777] hover:text-white'
+                    className={`p-1.5 rounded-full text-xs transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
+                        : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                     }`}
                   >
                     <ListDashesIcon size={14} />
@@ -379,7 +321,7 @@ export default function CompanionAppPage() {
 
                 <button
                   onClick={handleOpenFolderModal}
-                  className="flex items-center gap-1.5 bg-[#0e0e0e] hover:bg-[#181818] border border-[#222222] text-xs text-[#cccccc] hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 bg-white dark:bg-[#1f1f23] hover:bg-neutral-100 dark:hover:bg-[#28282d] border border-black/5 dark:border-white/10 text-xs text-neutral-700 dark:text-neutral-200 px-3.5 py-1.5 rounded-full shadow-sm transition-all"
                 >
                   <FolderPlusIcon size={14} />
 
@@ -387,8 +329,17 @@ export default function CompanionAppPage() {
                 </button>
 
                 <button
+                  onClick={handleUploadFolderClick}
+                  className="flex items-center gap-1.5 bg-white dark:bg-[#1f1f23] hover:bg-neutral-100 dark:hover:bg-[#28282d] border border-black/5 dark:border-white/10 text-xs text-neutral-700 dark:text-neutral-200 px-3.5 py-1.5 rounded-full shadow-sm transition-all"
+                >
+                  <FolderIcon size={14} />
+
+                  <span>Upload Folder</span>
+                </button>
+
+                <button
                   onClick={handleUploadClick}
-                  className="flex items-center gap-1.5 bg-white hover:bg-neutral-200 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  className="flex items-center gap-1.5 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 text-xs font-semibold px-4 py-1.5 rounded-full shadow-sm transition-all"
                 >
                   <UploadSimpleIcon size={14} />
 
@@ -400,6 +351,17 @@ export default function CompanionAppPage() {
                   type="file"
                   multiple
                   onChange={handleFileInputChange}
+                  className="hidden"
+                />
+
+                <input
+                  ref={folderInputRef}
+                  type="file"
+                  // @ts-expect-error - webkitdirectory attribute is standard for folder picking
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  onChange={handleFolderInputChange}
                   className="hidden"
                 />
               </div>
@@ -420,6 +382,88 @@ export default function CompanionAppPage() {
         )}
       </div>
 
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+        <div className="flex items-center gap-1 p-1.5 bg-white/80 dark:bg-[#1f1f23]/80 backdrop-blur-xl border border-black/10 dark:border-white/10 rounded-full shadow-2xl shadow-neutral-900/10 dark:shadow-black/50">
+          <button
+            onClick={() => setActiveTab('account')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'account'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <UserCircleIcon size={16} />
+
+            <span>Account</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('files')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'files'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <HardDrivesIcon size={16} />
+
+            <span>Files</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('plan')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'plan'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <CrownIcon size={16} />
+
+            <span>Plan</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('shared')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'shared'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <ShareNetworkIcon size={16} />
+
+            <span>Shared</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'settings'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <GearIcon size={16} />
+
+            <span>Settings</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('deleted')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'deleted'
+                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
+            }`}
+          >
+            <TrashIcon size={16} />
+
+            <span>Deleted</span>
+          </button>
+        </div>
+      </div>
+
       <UploadDrawer
         isOpen={isUploadDrawerOpen}
         uploadQueue={uploadQueue}
@@ -432,14 +476,14 @@ export default function CompanionAppPage() {
       />
 
       {isNewFolderOpen && (
-        <section className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0c0c] border border-[#222222] p-6 rounded-xl max-w-sm w-full shadow-2xl">
-            <h2 className="text-sm font-semibold text-white mb-2">
+        <section className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white mb-2">
               <span>New Encrypted Folder</span>
             </h2>
 
-            <p className="text-xs text-[#71717a] mb-4">
-              <span>Folder title is encrypted with AES-256 before being committed to the database.</span>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">
+              <span>Folder title is encrypted client-side with AES-256 before being committed to the database.</span>
             </p>
 
             <form onSubmit={handleFolderSubmit} className="flex flex-col gap-4">
@@ -450,21 +494,21 @@ export default function CompanionAppPage() {
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 placeholder="Folder title..."
-                className="bg-[#141414] border border-[#282828] rounded-lg px-3 py-2 text-xs text-white placeholder-[#555555] focus:outline-none focus:border-[#444444]"
+                className="bg-neutral-50 dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white transition-all"
               />
 
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsNewFolderOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs text-[#888888] hover:text-white"
+                  className="px-4 py-2 rounded-full text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
                 >
                   <span>Cancel</span>
                 </button>
 
                 <button
                   type="submit"
-                  className="bg-white text-black font-semibold px-4 py-1.5 rounded-lg text-xs hover:bg-neutral-200"
+                  className="bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold px-5 py-2 rounded-full text-xs shadow-sm hover:opacity-90 transition-all"
                 >
                   <span>Create</span>
                 </button>
@@ -475,44 +519,44 @@ export default function CompanionAppPage() {
       )}
 
       {shareModalNode && (
-        <section className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0c0c] border border-[#222222] p-6 rounded-xl max-w-md w-full shadow-2xl flex flex-col gap-4">
+        <section className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl max-w-md w-full shadow-2xl flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <LinkSimpleIcon size={18} className="text-white" />
+                <LinkSimpleIcon size={18} className="text-neutral-900 dark:text-white" />
 
-                <h2 className="text-sm font-semibold text-white">
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">
                   <span>Zero-Knowledge Share Link</span>
                 </h2>
               </div>
 
               <button
                 onClick={() => setShareModalNode(null)}
-                className="text-[#777777] hover:text-white"
+                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-1 rounded-full transition-colors"
               >
                 <XIcon size={16} />
               </button>
             </div>
 
-            <p className="text-xs text-[#888888]">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
               <span>
                 Anyone with this link can decrypt and download{' '}
-                <span className="text-white font-medium">{shareModalNode.name}</span>. The decryption key
-                is embedded in the URL fragment (<code className="text-emerald-400 font-mono">#key</code>) and is never sent to our servers.
+                <span className="text-neutral-900 dark:text-white font-medium">{shareModalNode.name}</span>. The decryption key
+                is embedded in the URL fragment (<code className="text-emerald-600 dark:text-emerald-400 font-mono font-medium">#key</code>) and is never sent to our servers.
               </span>
             </p>
 
-            <div className="flex items-center gap-2 bg-[#141414] border border-[#282828] p-2 rounded-lg">
+            <div className="flex items-center gap-2 bg-neutral-50 dark:bg-black/20 border border-black/10 dark:border-white/10 p-2 rounded-xl">
               <input
                 type="text"
                 readOnly
                 value={generatedShareUrl}
-                className="bg-transparent text-xs text-[#cccccc] font-mono flex-1 outline-none truncate"
+                className="bg-transparent text-xs text-neutral-700 dark:text-neutral-300 font-mono flex-1 outline-none truncate px-1"
               />
 
               <button
                 onClick={handleCopyShareLink}
-                className="flex items-center gap-1 bg-white text-black text-xs font-semibold px-3 py-1.5 rounded-md hover:bg-neutral-200 shrink-0"
+                className="flex items-center gap-1 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-sm hover:opacity-90 shrink-0 transition-all"
               >
                 {isCopied ? <CheckIcon size={12} /> : <LinkSimpleIcon size={12} />}
 

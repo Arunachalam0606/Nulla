@@ -10,6 +10,7 @@ import FileProvider
 
 public struct MenuBarView: View {
     @ObservedObject private var vault = VaultService.shared
+    @ObservedObject private var volumeMount = VolumeMountService.shared
     @State private var isTargetedForDrop = false
     
     public init() {}
@@ -36,10 +37,10 @@ public struct MenuBarView: View {
                 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(vault.isAuthenticated ? Color.green : Color.yellow)
+                        .fill(volumeMount.isMounted ? Color.green : (vault.isAuthenticated ? Color.blue : Color.yellow))
                         .frame(width: 6, height: 6)
                     
-                    Text(vault.isAuthenticated ? "Mounted in Finder" : "Vault Locked")
+                    Text(volumeMount.isMounted ? "Mounted /Volumes/Nulla" : (vault.isAuthenticated ? "Vault Ready" : "Vault Locked"))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.gray)
                 }
@@ -180,13 +181,39 @@ public struct MenuBarView: View {
                 .background(Color.white.opacity(0.1))
             
             // Actions
-            HStack {
+            HStack(spacing: 8) {
                 Button(action: openFinderLocation) {
-                    Label("Open Finder", systemImage: "folder")
+                    Label(volumeMount.isMounted ? "Open /Volumes/Nulla" : "Open Finder", systemImage: "folder")
                         .font(.system(size: 11))
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.white)
+                
+                if volumeMount.isMounted {
+                    Button(action: { volumeMount.ejectVolume() }) {
+                        Image(systemName: "eject.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Eject /Volumes/Nulla")
+                } else if vault.isAuthenticated {
+                    Button(action: { volumeMount.mountVolume() }) {
+                        Text("Mount")
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(4)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Mount /Volumes/Nulla")
+                }
                 
                 Spacer()
                 
@@ -223,6 +250,7 @@ public struct MenuBarView: View {
         .background(Color(nsColor: .darkGray).opacity(0.3))
         .task {
             await vault.refreshStorage()
+            volumeMount.checkMountStatus()
         }
     }
     
@@ -252,17 +280,23 @@ public struct MenuBarView: View {
     }
     
     private func openFinderLocation() {
+        if FileManager.default.fileExists(atPath: "/Volumes/Nulla") {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            process.arguments = ["/Volumes/Nulla"]
+            try? process.run()
+            return
+        }
+        
+        // If not mounted yet, mount it now and open
+        volumeMount.mountVolume()
         Task {
-            let domain = NSFileProviderDomain(identifier: NSFileProviderDomainIdentifier("app.nulla.vault"), displayName: "Nulla")
-            if let manager = NSFileProviderManager(for: domain) {
-                do {
-                    let url = try await manager.getUserVisibleURL(for: .rootContainer)
-                    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
-                    NSWorkspace.shared.open(url)
-                } catch {
-                    NSLog("[Nulla] Error locating Finder container: \(error.localizedDescription)")
-                }
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if FileManager.default.fileExists(atPath: "/Volumes/Nulla") {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                process.arguments = ["/Volumes/Nulla"]
+                try? process.run()
             }
         }
     }

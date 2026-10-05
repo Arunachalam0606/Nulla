@@ -14,7 +14,18 @@ import os.log
 public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
     private let domain: NSFileProviderDomain
     private let logger = Logger(subsystem: "app.nulla.macos", category: "FileProviderExtension")
+    private var cachedApiHost: String?
+    
     private var apiBaseURL: URL {
+        if let host = cachedApiHost, let url = URL(string: host) {
+            return url
+        }
+        if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos"),
+           let savedHost = sharedDefaults.string(forKey: "nulla_api_host"),
+           !savedHost.isEmpty,
+           let hostURL = URL(string: savedHost) {
+            return hostURL
+        }
         if let hostData = KeychainHelper.load(key: "nulla_api_host"),
            let hostStr = String(data: hostData, encoding: .utf8),
            let hostURL = URL(string: hostStr) {
@@ -24,10 +35,10 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
            let hostURL = URL(string: savedHost) {
             return hostURL
         }
-        return URL(string: "http://localhost:8787")!
+        return URL(string: "https://nulla-worker.nulla-vault.workers.dev")!
     }
     
-    // In-memory master encryption key retrieved from macOS Keychain
+    // In-memory master encryption key retrieved from macOS Keychain or App Group
     private var masterKey: SymmetricKey?
     private var apiToken: String?
     
@@ -44,14 +55,70 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
     }
     
     private func loadCredentialsFromKeychain() {
-        // Load master encryption key and API session token from secure Apple Keychain
-        if let tokenData = KeychainHelper.load(key: "nulla_api_token"),
-           let tokenString = String(data: tokenData, encoding: .utf8) {
-            self.apiToken = tokenString
+        // 1. Check credentials.json in shared group container (file-based IPC)
+        var fileToken: String?
+        var fileHost: String?
+        var fileMasterKeyB64: String?
+        
+        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.app.nulla.macos") {
+            let credsURL = groupURL.appendingPathComponent("credentials.json")
+            if let data = try? Data(contentsOf: credsURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                fileToken = json["token"]
+                fileHost = json["apiHost"]
+                fileMasterKeyB64 = json["masterKeyB64"]
+            }
         }
         
-        if let keyData = KeychainHelper.load(key: "nulla_master_key") {
+        if fileToken == nil {
+            let pw = getpwuid(getuid())
+            let realHome = (pw != nil && pw!.pointee.pw_dir != nil)
+                ? String(cString: pw!.pointee.pw_dir)
+                : "/Users/\(NSUserName())"
+            let directURL = URL(fileURLWithPath: "\(realHome)/Library/Group Containers/group.app.nulla.macos/credentials.json")
+            if let data = try? Data(contentsOf: directURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                fileToken = json["token"]
+                fileHost = json["apiHost"]
+                fileMasterKeyB64 = json["masterKeyB64"]
+            }
+        }
+        
+        if let token = fileToken, !token.isEmpty {
+            self.apiToken = token
+        }
+        if let host = fileHost, !host.isEmpty {
+            self.cachedApiHost = host
+        }
+        if let keyB64 = fileMasterKeyB64, let keyData = Data(base64Encoded: keyB64) {
             self.masterKey = SymmetricKey(data: keyData)
+        }
+        
+        // 2. Check shared App Group UserDefaults suite
+        if self.apiToken == nil || self.masterKey == nil {
+            if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos") {
+                if let token = sharedDefaults.string(forKey: "nulla_api_token"), !token.isEmpty {
+                    self.apiToken = token
+                }
+                if let keyB64 = sharedDefaults.string(forKey: "nulla_master_key_b64"),
+                   let keyData = Data(base64Encoded: keyB64) {
+                    self.masterKey = SymmetricKey(data: keyData)
+                }
+            }
+        }
+        
+        // 3. Fall back to Keychain if not found
+        if self.apiToken == nil {
+            if let tokenData = KeychainHelper.load(key: "nulla_api_token"),
+               let tokenString = String(data: tokenData, encoding: .utf8) {
+                self.apiToken = tokenString
+            }
+        }
+        
+        if self.masterKey == nil {
+            if let keyData = KeychainHelper.load(key: "nulla_master_key") {
+                self.masterKey = SymmetricKey(data: keyData)
+            }
         }
     }
     
@@ -96,7 +163,11 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
             return progress
         }
         
-        guard let token = apiToken, let key = masterKey else {
+        if apiToken == nil || masterKey == nil {
+            self.loadCredentialsFromKeychain()
+        }
+        
+        guard let token = apiToken else {
             completionHandler(nil, NSFileProviderError(.notAuthenticated))
             return progress
         }
@@ -114,19 +185,32 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
                 }
                 
                 let rawNode = try JSONDecoder().decode(RawNodePayload.self, from: data)
-                let name = try CryptoKitEngine.shared.decryptMetadata(
-                    ciphertextBase64: rawNode.name_encrypted,
-                    ivHex: rawNode.name_iv,
-                    masterKey: key
-                )
+                var resolvedName = rawNode.name ?? ""
+                if resolvedName.isEmpty {
+                    if let key = masterKey,
+                       let enc = rawNode.name_encrypted, !enc.isEmpty,
+                       let iv = rawNode.name_iv, !iv.isEmpty {
+                        do {
+                            resolvedName = try CryptoKitEngine.shared.decryptMetadata(
+                                ciphertextBase64: enc,
+                                ivHex: iv,
+                                masterKey: key
+                            )
+                        } catch {
+                            resolvedName = "Encrypted_\(rawNode.id.prefix(8))"
+                        }
+                    } else {
+                        resolvedName = "File_\(rawNode.id.prefix(8))"
+                    }
+                }
                 
                 let item = FileProviderItem(
                     identifier: rawNode.id,
                     parentIdentifier: rawNode.parent_id,
-                    filename: name,
+                    filename: resolvedName,
                     isFolder: rawNode.type == "folder",
                     sizeInBytes: rawNode.size_bytes,
-                    chunkCount: rawNode.chunk_count,
+                    chunkCount: rawNode.chunk_count ?? 1,
                     isLocallyCached: false
                 )
                 
@@ -142,7 +226,7 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
     // MARK: - On-Demand Range-Streaming Engine
     
     /// Intercepts OS file access (QuickTime, Final Cut Pro, Finder).
-    /// Fetches only requested 4 MB block chunks, decrypts in RAM in ~5ms, and serves to OS.
+    /// Fetches file contents via direct R2 range streaming, falling back to decrypted chunk blocks if needed.
     public func fetchContents(
         for itemIdentifier: NSFileProviderItemIdentifier,
         version requestedVersion: NSFileProviderItemVersion?,
@@ -151,14 +235,79 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
     ) -> Progress {
         let progress = Progress(totalUnitCount: 100)
         
-        guard let key = masterKey, let token = apiToken else {
+        if apiToken == nil || masterKey == nil {
+            self.loadCredentialsFromKeychain()
+        }
+        
+        guard let token = apiToken else {
             completionHandler(nil, nil, NSFileProviderError(.notAuthenticated))
             return progress
         }
         
         Task {
             do {
-                // Query chunk manifest for the file
+                let tempDir = FileManager.default.temporaryDirectory
+                let targetURL = tempDir.appendingPathComponent("nulla_\(itemIdentifier.rawValue).tmp")
+                
+                // Fetch item metadata to construct accurate FileProviderItem
+                var resolvedFilename = "File_\(itemIdentifier.rawValue.prefix(8))"
+                var resolvedParentId: String? = nil
+                var resolvedContentType: UTType = .data
+                
+                let nodeMetaUrl = apiBaseURL.appendingPathComponent("api/nodes/\(itemIdentifier.rawValue)")
+                var metaReq = URLRequest(url: nodeMetaUrl)
+                metaReq.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                if let (metaData, metaResp) = try? await URLSession.shared.data(for: metaReq),
+                   let metaHttp = metaResp as? HTTPURLResponse, metaHttp.statusCode == 200,
+                   let rawNode = try? JSONDecoder().decode(RawNodePayload.self, from: metaData) {
+                    resolvedParentId = rawNode.parent_id
+                    if let n = rawNode.name, !n.isEmpty {
+                        resolvedFilename = n
+                    } else if let enc = rawNode.name_encrypted, let iv = rawNode.name_iv, let key = masterKey,
+                              let dec = try? CryptoKitEngine.shared.decryptMetadata(ciphertextBase64: enc, ivHex: iv, masterKey: key) {
+                        resolvedFilename = dec
+                    }
+                    if let mime = rawNode.mime_type, let ut = UTType(mimeType: mime) {
+                        resolvedContentType = ut
+                    } else {
+                        resolvedContentType = UTType(filenameExtension: (resolvedFilename as NSString).pathExtension) ?? .data
+                    }
+                }
+                
+                // 1. Try Native R2 Range Stream endpoint
+                let streamUrl = apiBaseURL.appendingPathComponent("api/nodes/\(itemIdentifier.rawValue)/stream")
+                var streamReq = URLRequest(url: streamUrl)
+                streamReq.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                
+                if let (downloadedURL, resp) = try? await URLSession.shared.download(for: streamReq),
+                   let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) {
+                    if FileManager.default.fileExists(atPath: targetURL.path) {
+                        try? FileManager.default.removeItem(at: targetURL)
+                    }
+                    try FileManager.default.moveItem(at: downloadedURL, to: targetURL)
+                    progress.completedUnitCount = 100
+                    
+                    let attrSize = (try? FileManager.default.attributesOfItem(atPath: targetURL.path)[.size] as? NSNumber)?.int64Value ?? 0
+                    let item = FileProviderItem(
+                        identifier: itemIdentifier.rawValue,
+                        parentIdentifier: resolvedParentId,
+                        filename: resolvedFilename,
+                        isFolder: false,
+                        sizeInBytes: attrSize,
+                        isLocallyCached: true,
+                        contentType: resolvedContentType
+                    )
+                    
+                    completionHandler(targetURL, item, nil)
+                    return
+                }
+                
+                // 2. Fallback: Query chunk manifest for legacy encrypted chunk blocks
+                guard let key = masterKey else {
+                    completionHandler(nil, nil, NSFileProviderError(.notAuthenticated))
+                    return
+                }
+                
                 let chunksUrl = apiBaseURL.appendingPathComponent("api/nodes/\(itemIdentifier.rawValue)/chunks")
                 var chunksReq = URLRequest(url: chunksUrl)
                 chunksReq.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -166,11 +315,6 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
                 let (manifestData, _) = try await URLSession.shared.data(for: chunksReq)
                 let manifest = try JSONDecoder().decode(ChunkManifestResponse.self, from: manifestData)
                 
-                // Temporary sparse file staging destination
-                let tempDir = FileManager.default.temporaryDirectory
-                let targetURL = tempDir.appendingPathComponent("nulla_\(itemIdentifier.rawValue).tmp")
-                
-                // Write/stream decrypted chunks on demand
                 if FileManager.default.fileExists(atPath: targetURL.path) {
                     try? FileManager.default.removeItem(at: targetURL)
                 }
@@ -178,11 +322,9 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
                 let fileHandle = try FileHandle(forWritingTo: targetURL)
                 
                 for (index, chunk) in manifest.chunks.enumerated() {
-                    // Stream 4 MB chunk from Nulla Worker / Cloudflare R2
-                    let streamUrl = apiBaseURL.appendingPathComponent("api/stream/\(chunk.id)")
-                    let (encryptedChunkData, _) = try await URLSession.shared.data(from: streamUrl)
+                    let chunkStreamUrl = apiBaseURL.appendingPathComponent("api/stream/\(chunk.id)")
+                    let (encryptedChunkData, _) = try await URLSession.shared.data(from: chunkStreamUrl)
                     
-                    // Decrypt 4 MB block in RAM using CryptoKit AES-GCM (~5ms)
                     let decryptedBytes = try CryptoKitEngine.shared.decryptChunk(
                         masterKey: key,
                         chunkIndex: chunk.chunk_index,
@@ -195,11 +337,15 @@ public final class FileProviderExtension: NSObject, NSFileProviderReplicatedExte
                 
                 try fileHandle.close()
                 
+                let attrSize = (try? FileManager.default.attributesOfItem(atPath: targetURL.path)[.size] as? NSNumber)?.int64Value ?? 0
                 let item = FileProviderItem(
                     identifier: itemIdentifier.rawValue,
-                    filename: "StreamedFile",
+                    parentIdentifier: resolvedParentId,
+                    filename: resolvedFilename,
                     isFolder: false,
-                    isLocallyCached: true
+                    sizeInBytes: attrSize,
+                    isLocallyCached: true,
+                    contentType: resolvedContentType
                 )
                 
                 completionHandler(targetURL, item, nil)

@@ -63,7 +63,7 @@ function hasMovieFragmentAtom(bytes: Uint8Array): boolean {
   return false;
 }
 
-export function useStreamPlayerLogic(node: DecryptedNode | null) {
+export function useStreamPlayerLogic(node: DecryptedNode | null, enabled: boolean = true) {
   const token = useAuthStore((state) => state.token);
   const masterKey = useAuthStore((state) => state.masterKey);
   const masterKeyRaw = useAuthStore((state) => state.masterKeyRaw);
@@ -392,7 +392,9 @@ export function useStreamPlayerLogic(node: DecryptedNode | null) {
   }, []);
 
   useEffect(() => {
-    loadAndDecryptStream();
+    if (enabled) {
+      loadAndDecryptStream();
+    }
 
     return () => {
       if (abortControllerRef.current) {
@@ -400,7 +402,7 @@ export function useStreamPlayerLogic(node: DecryptedNode | null) {
       }
       cleanupActiveUrl();
     };
-  }, [node?.id, loadAndDecryptStream, cleanupActiveUrl]);
+  }, [node?.id, enabled, loadAndDecryptStream, cleanupActiveUrl]);
 
   return {
     mediaUrl,

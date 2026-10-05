@@ -57,6 +57,11 @@ public final class FileProviderItem: NSObject, NSFileProviderItem {
     
     // MARK: - NSFileProviderItem Protocol
     
+    public var itemVersion: NSFileProviderItemVersion {
+        let versionData = "\(modifiedAt.timeIntervalSince1970)".data(using: .utf8) ?? Data()
+        return NSFileProviderItemVersion(contentVersion: versionData, metadataVersion: versionData)
+    }
+    
     public var capabilities: NSFileProviderItemCapabilities {
         if isFolder {
             return [.allowsReading, .allowsAddingSubItems, .allowsContentEnumerating, .allowsRenaming, .allowsDeleting]

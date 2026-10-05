@@ -6,6 +6,10 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>NullaApp</string>
+    <key>CFBundleIconFile</key>
+    <string>Nulla</string>
+    <key>CFBundleIconName</key>
+    <string>Nulla</string>
     <key>CFBundleIdentifier</key>
     <string>app.nulla.macos</string>
     <key>CFBundleInfoDictionaryVersion</key>

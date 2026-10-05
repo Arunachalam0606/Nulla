@@ -38,8 +38,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup Menu Bar Status Item with Drag & Drop Ingestion
         setupStatusItem()
         
+        // Start lightweight WebDAV server and mount /Volumes/Nulla
+        VolumeMountService.shared.startServer()
+        if VaultService.shared.isAuthenticated {
+            VolumeMountService.shared.mountVolume()
+        }
+        
         // Register and mount Nulla FileProvider domain in Finder
         registerFileProviderDomain()
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        VolumeMountService.shared.ejectVolume()
     }
     
     private func setupStatusItem() {
@@ -78,30 +88,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             
             do {
-                appLogger.info("Ensuring NSFileProviderDomain: app.nulla.vault...")
-                do {
-                    try await NSFileProviderManager.add(domain)
-                    appLogger.info("Registered NSFileProviderDomain: app.nulla.vault")
-                } catch {
-                    appLogger.info("Domain add result (may already exist): \(error.localizedDescription)")
+                let existingDomains = try await NSFileProviderManager.domains()
+                appLogger.info("Existing domains found: \(existingDomains.count)")
+                for existing in existingDomains where existing.identifier == domainIdentifier {
+                    appLogger.info("Removing stale domain: \(existing.identifier.rawValue)")
+                    try? await NSFileProviderManager.remove(existing)
                 }
-                
-                if let manager = NSFileProviderManager(for: domain) {
-                    let rootURL = try await manager.getUserVisibleURL(for: .rootContainer)
-                    try? FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
-                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: rootURL.path)
-                    appLogger.info("Revealed Nulla root container in Finder at: \(rootURL.path)")
-                }
-                
-                // Restart Finder so the new CloudStorage domain appears under Locations in the sidebar
-                let killFinder = Process()
-                killFinder.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-                killFinder.arguments = ["Finder"]
-                try? killFinder.run()
-                appLogger.info("Finder reloaded for CloudStorage sidebar refresh.")
             } catch {
-                appLogger.error("NSFileProviderManager setup error: \(error.localizedDescription) (Error: \(error))")
+                appLogger.info("Listing domains notice: \(error.localizedDescription)")
             }
+            
+            do {
+                appLogger.info("Registering fresh NSFileProviderDomain: app.nulla.vault...")
+                try await NSFileProviderManager.add(domain)
+                appLogger.info("Registered NSFileProviderDomain: app.nulla.vault successfully")
+            } catch {
+                appLogger.info("Domain add result: \(error.localizedDescription)")
+            }
+            
+            guard let manager = NSFileProviderManager(for: domain) else { return }
+            do {
+                let rootURL = try await manager.getUserVisibleURL(for: .rootContainer)
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                process.arguments = [rootURL.path]
+                try? process.run()
+                appLogger.info("Revealed Nulla rootContainer at: \(rootURL.path)")
+            } catch {
+                // Fallback: Use getpwuid to escape sandbox redirection
+                if let pw = getpwuid(getuid()), let home = pw.pointee.pw_dir {
+                    let realHome = FileManager.default.string(withFileSystemRepresentation: home, length: Int(strlen(home)))
+                    let cloudPath = URL(fileURLWithPath: realHome).appendingPathComponent("Library/CloudStorage/Nulla-app.nulla.vault")
+                    if !FileManager.default.fileExists(atPath: cloudPath.path) {
+                        let plainPath = URL(fileURLWithPath: realHome).appendingPathComponent("Library/CloudStorage/Nulla")
+                        if FileManager.default.fileExists(atPath: plainPath.path) {
+                            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: plainPath.path)
+                            return
+                        }
+                    }
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: cloudPath.path)
+                }
+            }
+            
+            // Restart Finder so the new CloudStorage domain appears under Locations in the sidebar
+            let killFinder = Process()
+            killFinder.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            killFinder.arguments = ["Finder"]
+            try? killFinder.run()
+            appLogger.info("Finder reloaded for CloudStorage sidebar refresh.")
         }
     }
     

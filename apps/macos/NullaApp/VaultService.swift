@@ -24,6 +24,12 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
     @Published public var nodes: [VaultNodeItem] = []
     
     public var apiBaseURL: URL {
+        if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos"),
+           let savedHost = sharedDefaults.string(forKey: "nulla_api_host"),
+           !savedHost.isEmpty,
+           let url = URL(string: savedHost) {
+            return url
+        }
         if let savedHost = UserDefaults.standard.string(forKey: "nulla_api_host"),
            !savedHost.isEmpty,
            let url = URL(string: savedHost) {
@@ -34,7 +40,7 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
            let url = URL(string: customUrl) {
             return url
         }
-        return URL(string: "http://localhost:8787")!
+        return URL(string: "https://nulla-worker.nulla-vault.workers.dev")!
     }
     
     private init() {
@@ -44,6 +50,11 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
     // MARK: - Credentials
     
     public func getAuthToken() -> String? {
+        if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos"),
+           let token = sharedDefaults.string(forKey: "nulla_api_token"),
+           !token.isEmpty {
+            return token
+        }
         if let tokenData = KeychainHelper.load(key: "nulla_api_token"),
            let token = String(data: tokenData, encoding: .utf8) {
             return token
@@ -52,6 +63,11 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
     }
     
     public func getMasterKey() -> SymmetricKey? {
+        if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos"),
+           let keyB64 = sharedDefaults.string(forKey: "nulla_master_key_b64"),
+           let keyData = Data(base64Encoded: keyB64) {
+            return SymmetricKey(data: keyData)
+        }
         if let keyData = KeychainHelper.load(key: "nulla_master_key") {
             return SymmetricKey(data: keyData)
         }
@@ -148,13 +164,47 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
     @MainActor
     private func handleAuthSuccess(data: Data, masterKey: SymmetricKey) throws {
         let result = try JSONDecoder().decode(LoginSuccessResponse.self, from: data)
+        let token = result.token
+        let userId = result.user?.id ?? ""
+        let apiHost = apiBaseURL.absoluteString
         
-        // Store session token, 256-bit Master Key, and API host securely in Apple Keychain
-        KeychainHelper.save(key: "nulla_api_token", data: Data(result.token.utf8))
+        // 1. Store session token, 256-bit Master Key, and API host securely in Apple Keychain
+        KeychainHelper.save(key: "nulla_api_token", data: Data(token.utf8))
         let masterKeyData = masterKey.withUnsafeBytes { Data($0) }
         KeychainHelper.save(key: "nulla_master_key", data: masterKeyData)
-        if let hostData = apiBaseURL.absoluteString.data(using: .utf8) {
+        if let hostData = apiHost.data(using: .utf8) {
             KeychainHelper.save(key: "nulla_api_host", data: hostData)
+        }
+        
+        // 2. Share credentials to FileProvider extension via App Group
+        let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos")
+        sharedDefaults?.set(token, forKey: "nulla_api_token")
+        sharedDefaults?.set(apiHost, forKey: "nulla_api_host")
+        sharedDefaults?.set(userId, forKey: "nulla_user_id")
+        sharedDefaults?.set(masterKeyData.base64EncodedString(), forKey: "nulla_master_key_b64")
+        sharedDefaults?.synchronize()
+        
+        // 3. Write credentials.json to shared group container for reliable IPC
+        let credsDict: [String: String] = [
+            "token": token,
+            "apiHost": apiHost,
+            "masterKeyB64": masterKeyData.base64EncodedString(),
+            "userId": userId
+        ]
+        if let json = try? JSONSerialization.data(withJSONObject: credsDict, options: .prettyPrinted) {
+            if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.app.nulla.macos") {
+                try? FileManager.default.createDirectory(at: groupURL, withIntermediateDirectories: true)
+                let credsURL = groupURL.appendingPathComponent("credentials.json")
+                try? json.write(to: credsURL)
+            }
+            let pw = getpwuid(getuid())
+            let realHome = (pw != nil && pw!.pointee.pw_dir != nil)
+                ? String(cString: pw!.pointee.pw_dir)
+                : "/Users/\(NSUserName())"
+            let directGroupDir = URL(fileURLWithPath: "\(realHome)/Library/Group Containers/group.app.nulla.macos")
+            try? FileManager.default.createDirectory(at: directGroupDir, withIntermediateDirectories: true)
+            let directCredsURL = directGroupDir.appendingPathComponent("credentials.json")
+            try? json.write(to: directCredsURL)
         }
         
         self.isAuthenticated = true
@@ -172,12 +222,34 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
                 try? await manager.signalEnumerator(for: .rootContainer)
             }
         }
+        
+        // Mount /Volumes/Nulla
+        VolumeMountService.shared.mountVolume()
     }
     
     @MainActor
     public func logout() {
+        VolumeMountService.shared.ejectVolume()
+        
         KeychainHelper.delete(key: "nulla_api_token")
         KeychainHelper.delete(key: "nulla_master_key")
+        let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos")
+        sharedDefaults?.removeObject(forKey: "nulla_api_token")
+        sharedDefaults?.removeObject(forKey: "nulla_user_id")
+        sharedDefaults?.removeObject(forKey: "nulla_master_key_b64")
+        sharedDefaults?.synchronize()
+        
+        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.app.nulla.macos") {
+            let credsURL = groupURL.appendingPathComponent("credentials.json")
+            try? FileManager.default.removeItem(at: credsURL)
+        }
+        let pw = getpwuid(getuid())
+        let realHome = (pw != nil && pw!.pointee.pw_dir != nil)
+            ? String(cString: pw!.pointee.pw_dir)
+            : "/Users/\(NSUserName())"
+        let directCredsURL = URL(fileURLWithPath: "\(realHome)/Library/Group Containers/group.app.nulla.macos/credentials.json")
+        try? FileManager.default.removeItem(at: directCredsURL)
+        
         self.isAuthenticated = false
         self.cloudStorageUsed = "0 bytes"
         self.localDiskUsed = "0 bytes"
@@ -219,16 +291,18 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
             for node in result.nodes {
                 totalBytes += node.size_bytes
                 
-                var clearName = "File_\(node.id.prefix(6))"
-                if let masterKey = key {
-                    do {
-                        clearName = try CryptoKitEngine.shared.decryptMetadata(
-                            ciphertextBase64: node.name_encrypted,
-                            ivHex: node.name_iv,
-                            masterKey: masterKey
-                        )
-                    } catch {
-                        clearName = "Encrypted Item"
+                var clearName = node.name ?? "File_\(node.id.prefix(6))"
+                if (node.name == nil || clearName.isEmpty) {
+                    if let masterKey = key, let enc = node.name_encrypted, let iv = node.name_iv, !iv.isEmpty {
+                        do {
+                            clearName = try CryptoKitEngine.shared.decryptMetadata(
+                                ciphertextBase64: enc,
+                                ivHex: iv,
+                                masterKey: masterKey
+                            )
+                        } catch {
+                            clearName = "Item_\(node.id.prefix(6))"
+                        }
                     }
                 }
                 
@@ -277,17 +351,80 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
             return
         }
         
-        // 1. Slicing into 4 MB fixed blocks
+        let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        
+        // 1. Direct R2 Native Upload Flow (Helumi Architecture)
+        do {
+            let createURL = apiBaseURL.appendingPathComponent("api/nodes")
+            var createReq = URLRequest(url: createURL)
+            createReq.httpMethod = "POST"
+            createReq.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            createReq.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            
+            let createPayload: [String: Any] = [
+                "name": filename,
+                "mime_type": mimeType,
+                "size_bytes": fileSize
+            ]
+            createReq.httpBody = try JSONSerialization.data(withJSONObject: createPayload)
+            
+            let (createData, createResp) = try await URLSession.shared.data(for: createReq)
+            guard let createHttp = createResp as? HTTPURLResponse, (200...299).contains(createHttp.statusCode) else {
+                throw NSError(domain: "NullaUpload", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize node record."])
+            }
+            
+            struct DirectNodeResponse: Decodable {
+                struct DirectNode: Decodable {
+                    let id: String
+                }
+                let node: DirectNode
+            }
+            let nodeRes = try JSONDecoder().decode(DirectNodeResponse.self, from: createData)
+            let nodeId = nodeRes.node.id
+            
+            await MainActor.run {
+                self.uploadProgress = 0.15
+                self.currentUploadFileName = "Streaming \(filename) to R2..."
+            }
+            
+            let contentURL = apiBaseURL.appendingPathComponent("api/nodes/\(nodeId)/content")
+            var contentReq = URLRequest(url: contentURL)
+            contentReq.httpMethod = "PUT"
+            contentReq.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            contentReq.addValue(mimeType, forHTTPHeaderField: "Content-Type")
+            
+            let (_, uploadResp) = try await URLSession.shared.upload(for: contentReq, from: fileData)
+            guard let uploadHttp = uploadResp as? HTTPURLResponse, (200...299).contains(uploadHttp.statusCode) else {
+                throw NSError(domain: "NullaUpload", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to stream content to R2."])
+            }
+            
+            // Notify FileProvider and WebDAV volume
+            let domain = NSFileProviderDomain(identifier: NSFileProviderDomainIdentifier("app.nulla.vault"), displayName: "Nulla")
+            if let manager = NSFileProviderManager(for: domain) {
+                try? await manager.signalEnumerator(for: .rootContainer)
+            }
+            VolumeMountService.shared.checkMountStatus()
+            
+            await MainActor.run {
+                self.isUploading = false
+                self.uploadProgress = 1.0
+                self.currentUploadFileName = ""
+            }
+            await refreshStorage()
+            return
+        } catch {
+            // Fallback to chunked upload if direct fails
+        }
+        
+        // 2. Fallback: Slicing into 4 MB fixed blocks
         let chunkSize = CryptoKitEngine.chunkSize // 4 MB
         let totalChunks = max(1, Int(ceil(Double(fileData.count) / Double(chunkSize))))
         
-        // 2. Encrypt Metadata
         let (encryptedName, nameIv) = try CryptoKitEngine.shared.encryptMetadata(
             plaintext: filename,
             masterKey: masterKey
         )
         
-        // 3. Initiate Upload Session on Worker
         let initURL = apiBaseURL.appendingPathComponent("api/upload/chunk/init")
         var initReq = URLRequest(url: initURL)
         initReq.httpMethod = "POST"
@@ -310,7 +447,6 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
         let sessionInfo = try JSONDecoder().decode(UploadInitResponse.self, from: initData)
         let sessionId = sessionInfo.session_id
         
-        // 4. Encrypt and Upload Each 4 MB Block
         for chunkIndex in 0..<totalChunks {
             let start = chunkIndex * chunkSize
             let end = min(start + chunkSize, fileData.count)
@@ -320,14 +456,12 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
                 self.currentUploadFileName = "Uploading \(filename) (\(chunkIndex + 1)/\(totalChunks))"
             }
             
-            // Encrypt 4 MB chunk with deterministic HMAC IV via AES-256-GCM
             let (encryptedChunkWithTag, _) = try CryptoKitEngine.shared.encryptChunk(
                 masterKey: masterKey,
                 chunkIndex: chunkIndex,
                 plaintext: chunkPlaintext
             )
             
-            // PUT /api/upload/chunk/:session_id/:chunk_index
             let chunkUrl = apiBaseURL.appendingPathComponent("api/upload/chunk/\(sessionId)/\(chunkIndex)")
             var chunkReq = URLRequest(url: chunkUrl)
             chunkReq.httpMethod = "PUT"
@@ -345,7 +479,6 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
             }
         }
         
-        // 5. Complete Upload Session
         let completeURL = apiBaseURL.appendingPathComponent("api/upload/chunk/complete")
         var completeReq = URLRequest(url: completeURL)
         completeReq.httpMethod = "POST"
@@ -358,7 +491,6 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
             throw NSError(domain: "NullaUpload", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to finalize upload."])
         }
         
-        // Notify FileProvider domain to refresh Finder
         let domain = NSFileProviderDomain(identifier: NSFileProviderDomainIdentifier("app.nulla.vault"), displayName: "Nulla")
         if let manager = NSFileProviderManager(for: domain) {
             try? await manager.signalEnumerator(for: .rootContainer)
@@ -402,6 +534,12 @@ private struct SaltQueryResponse: Decodable {
 
 private struct LoginSuccessResponse: Decodable {
     let token: String
+    let user: UserPayload?
+}
+
+private struct UserPayload: Decodable {
+    let id: String
+    let email: String?
 }
 
 private struct NodesListResponse: Decodable {
@@ -411,11 +549,12 @@ private struct NodesListResponse: Decodable {
 private struct RawNodeItem: Decodable {
     let id: String
     let parent_id: String?
-    let name_encrypted: String
-    let name_iv: String
+    let name: String?
+    let name_encrypted: String?
+    let name_iv: String?
     let type: String
     let size_bytes: Int64
-    let chunk_count: Int
+    let chunk_count: Int?
 }
 
 private struct UploadInitResponse: Decodable {

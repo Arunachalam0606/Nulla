@@ -16,6 +16,7 @@ interface ExplorerState {
   isUploadDrawerOpen: boolean;
   uploadQueue: UploadQueueItem[];
   previewNode: DecryptedNode | null;
+  isE2eeVaultEnabled: boolean;
   setCurrentParentId: (id: string | null) => void;
   setBreadcrumbs: (breadcrumbs: BreadcrumbItem[]) => void;
   pushBreadcrumb: (item: BreadcrumbItem) => void;
@@ -26,6 +27,7 @@ interface ExplorerState {
   setViewMode: (mode: 'grid' | 'list') => void;
   setSearchQuery: (query: string) => void;
   setUploadDrawerOpen: (open: boolean) => void;
+  setIsE2eeVaultEnabled: (enabled: boolean) => void;
   addUploadQueueItem: (item: UploadQueueItem) => void;
   updateUploadQueueItem: (id: string, updates: Partial<UploadQueueItem>) => void;
   setPreviewNode: (node: DecryptedNode | null) => void;
@@ -44,6 +46,7 @@ const initialState: Omit<
   | 'setViewMode'
   | 'setSearchQuery'
   | 'setUploadDrawerOpen'
+  | 'setIsE2eeVaultEnabled'
   | 'addUploadQueueItem'
   | 'updateUploadQueueItem'
   | 'setPreviewNode'
@@ -58,6 +61,7 @@ const initialState: Omit<
   isUploadDrawerOpen: false,
   uploadQueue: [],
   previewNode: null,
+  isE2eeVaultEnabled: false,
 };
 
 export const useExplorerStore = create<ExplorerState>((set) => ({
@@ -84,6 +88,8 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   setSearchQuery: (searchQuery) => set({ searchQuery }),
 
   setUploadDrawerOpen: (isUploadDrawerOpen) => set({ isUploadDrawerOpen }),
+
+  setIsE2eeVaultEnabled: (isE2eeVaultEnabled) => set({ isE2eeVaultEnabled }),
 
   addUploadQueueItem: (item) =>
     set((state) => ({ uploadQueue: [item, ...state.uploadQueue] })),

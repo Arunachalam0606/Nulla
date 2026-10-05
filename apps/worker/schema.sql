@@ -92,6 +92,16 @@ CREATE TABLE IF NOT EXISTS file_requests (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 8. Password Resets (Resend Tokens)
+CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- High-Performance Query Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_devices_user_id ON devices(user_id);
@@ -101,3 +111,4 @@ CREATE INDEX IF NOT EXISTS idx_node_chunks_node_id ON node_chunks(node_id, chunk
 CREATE INDEX IF NOT EXISTS idx_node_chunks_r2_key ON node_chunks(r2_object_key);
 CREATE INDEX IF NOT EXISTS idx_shares_token ON shares(token);
 CREATE INDEX IF NOT EXISTS idx_file_requests_token ON file_requests(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);

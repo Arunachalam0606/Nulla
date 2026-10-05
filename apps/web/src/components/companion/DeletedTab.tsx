@@ -18,60 +18,67 @@ interface DeletedTabProps {
 }
 
 export const DeletedTab = (props: DeletedTabProps) => {
-  const { trashNodes, isLoading, onRestore, onPurge } = props;
+  const {
+    trashNodes,
+    isLoading,
+    onRestore,
+    onPurge,
+  } = props;
 
   return (
     <section className="flex flex-col gap-6 max-w-4xl w-full">
-      <div className="bg-[#0e0e0e] border border-[#222222] p-4 rounded-xl flex items-center gap-3 text-xs text-[#888888]">
-        <InfoIcon size={18} className="text-white shrink-0" />
+      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-4 rounded-2xl shadow-sm flex items-center gap-3 text-xs text-neutral-600 dark:text-neutral-300">
+        <div className="w-8 h-8 rounded-full bg-neutral-100 dark:bg-[#28282d] flex items-center justify-center text-neutral-900 dark:text-white shrink-0">
+          <InfoIcon size={16} />
+        </div>
 
         <span>
           Deleted files are protected by a 30-day retention window. Restoring immediately remounts the file in your macOS Finder volume at 0 physical bytes.
         </span>
       </div>
 
-      <div className="border border-[#1e1e1e] rounded-2xl bg-[#0a0a0a] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-[#181818] flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-white font-mono uppercase tracking-wider">
+      <div className="border border-black/5 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1f1f23] shadow-sm overflow-hidden flex flex-col">
+        <div className="p-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-neutral-900 dark:text-white font-mono uppercase tracking-wider">
             <span>Deleted Files (30-Day Recovery)</span>
           </h3>
 
-          <span className="text-xs font-mono text-[#71717a]">
+          <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400 bg-neutral-50 dark:bg-black/20 px-2.5 py-1 rounded-full border border-black/5 dark:border-white/10">
             {trashNodes.length} {trashNodes.length === 1 ? 'file' : 'files'}
           </span>
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#666666]">
-            <CircleNotchIcon size={24} className="animate-spin text-white mb-2" />
+          <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
+            <CircleNotchIcon size={24} className="animate-spin text-neutral-900 dark:text-white mb-2" />
 
             <span className="text-xs font-mono">Loading deleted nodes...</span>
           </div>
         ) : trashNodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-12 h-12 rounded-full border border-[#222222] bg-[#0c0c0c] flex items-center justify-center text-[#555555] mb-3">
+            <div className="w-12 h-12 rounded-full border border-black/5 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800/50 flex items-center justify-center text-neutral-400 mb-3 shadow-inner">
               <TrashIcon size={20} />
             </div>
 
-            <p className="text-sm text-[#888888] font-medium">
+            <p className="text-sm text-neutral-700 dark:text-neutral-300 font-medium">
               <span>Trash is empty</span>
             </p>
 
-            <p className="text-xs text-[#555555] mt-1">
+            <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
               <span>No soft-deleted files awaiting purging or recovery.</span>
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#161616]">
+          <div className="divide-y divide-black/5 dark:divide-white/5">
             {trashNodes.map((node) => (
               <div
                 key={node.id}
-                className="p-4 flex items-center justify-between hover:bg-[#0d0d0d] transition-colors"
+                className="p-4 sm:p-5 flex items-center justify-between hover:bg-neutral-50/50 dark:hover:bg-white/[0.02] transition-colors"
               >
                 <div>
-                  <span className="text-xs font-medium text-white">{node.name}</span>
+                  <span className="text-xs font-medium text-neutral-900 dark:text-white">{node.name}</span>
 
-                  <div className="flex items-center gap-3 text-[11px] text-[#71717a] font-mono mt-1">
+                  <div className="flex items-center gap-3 text-[11px] text-neutral-500 dark:text-neutral-400 font-mono mt-1">
                     <span>{formatBytes(node.sizeBytes)}</span>
 
                     <span>•</span>
@@ -83,7 +90,7 @@ export const DeletedTab = (props: DeletedTabProps) => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onRestore(node.id)}
-                    className="flex items-center gap-1.5 bg-[#141414] hover:bg-[#1f1f1f] border border-[#262626] text-xs text-white px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 text-xs px-3.5 py-1.5 rounded-full transition-all font-medium shadow-sm"
                   >
                     <ArrowCounterClockwiseIcon size={14} />
 
@@ -92,7 +99,7 @@ export const DeletedTab = (props: DeletedTabProps) => {
 
                   <button
                     onClick={() => onPurge(node.id)}
-                    className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-950 hover:bg-red-950/30 px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-950/60 hover:bg-red-50 dark:hover:bg-red-950/30 px-3.5 py-1.5 rounded-full transition-colors font-medium"
                   >
                     <XCircleIcon size={14} />
 
