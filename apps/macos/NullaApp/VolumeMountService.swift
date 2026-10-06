@@ -24,9 +24,108 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
     private let webdavQueue = DispatchQueue(label: "app.nulla.webdav.io", qos: .userInteractive, attributes: .concurrent)
     
     private init() {
+        cleanupStaleShares()
         startServer()
         checkMountStatus()
         startMonitoring()
+    }
+
+    public func cleanupStaleShares() {
+        Task {
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
+        }
+    }
+
+    // MARK: - Local SSD Stream Cache
+
+    private let cacheDirectory: URL = {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let dir = caches.appendingPathComponent("app.nulla.macos/stream_cache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    private func getCachedFileURL(for node: VaultNodeItem) -> URL {
+        let safeName = node.name.replacingOccurrences(of: "/", with: "_")
+        return cacheDirectory.appendingPathComponent("\(node.id)_\(safeName)")
+    }
+
+    private func isNodeFullyCached(node: VaultNodeItem) -> Bool {
+        let fileURL = getCachedFileURL(for: node)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return false }
+        let currentSize = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        return Int64(currentSize) == node.sizeBytes
+    }
+
+    private func serveFromCache(
+        fileURL: URL,
+        fileSize: Int64,
+        rangeHeader: String?,
+        method: String,
+        connection: NWConnection
+    ) {
+        guard let fileHandle = try? FileHandle(forReadingFrom: fileURL) else {
+            let err = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            sendResponse(connection: connection, text: err)
+            return
+        }
+        defer { try? fileHandle.close() }
+
+        var start: Int64 = 0
+        var end: Int64 = fileSize - 1
+        var isPartial = false
+
+        if let range = rangeHeader, range.lowercased().hasPrefix("bytes=") {
+            let cleanRange = range.dropFirst(6).trimmingCharacters(in: .whitespaces)
+            let parts = cleanRange.components(separatedBy: "-")
+            if let startInt = Int64(parts[0]) {
+                start = startInt
+                if parts.count > 1 && !parts[1].isEmpty, let endInt = Int64(parts[1]) {
+                    end = min(fileSize - 1, endInt)
+                }
+                isPartial = true
+            }
+        }
+
+        let length = max(0, end - start + 1)
+
+        var headerLines: [String] = []
+        if isPartial {
+            headerLines.append("HTTP/1.1 206 Partial Content")
+            headerLines.append("Content-Range: bytes \(start)-\(end)/\(fileSize)")
+        } else {
+            headerLines.append("HTTP/1.1 200 OK")
+        }
+        headerLines.append("Content-Type: application/octet-stream")
+        headerLines.append("Content-Length: \(length)")
+        headerLines.append("Accept-Ranges: bytes")
+        headerLines.append("Connection: close")
+        headerLines.append("\r\n")
+
+        let headerData = headerLines.joined(separator: "\r\n").data(using: .utf8)!
+
+        if method == "HEAD" {
+            connection.send(content: headerData, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ _ in
+                connection.cancel()
+            }))
+            return
+        }
+
+        do {
+            try fileHandle.seek(toOffset: UInt64(start))
+            let payload = fileHandle.readData(ofLength: Int(length))
+
+            var fullData = headerData
+            fullData.append(payload)
+            connection.send(content: fullData, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ _ in
+                connection.cancel()
+            }))
+        } catch {
+            connection.cancel()
+        }
     }
     
     // MARK: - Mount Status Monitoring
@@ -586,47 +685,12 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
         
         // Only append children if Depth != 0
         if !isDepthZero {
-            // Append .metadata_never_index
-            xml += """
-              <D:response>
-                <D:href>\(childPrefix).metadata_never_index</D:href>
-                <D:propstat>
-                  <D:prop>
-                    <D:resourcetype/>
-                    <D:displayname>.metadata_never_index</D:displayname>
-                    <D:getcontentlength>0</D:getcontentlength>
-                    <D:getcontenttype>text/plain</D:getcontenttype>
-                    <D:getlastmodified>\(rfc1123Date)</D:getlastmodified>
-                    <D:creationdate>\(iso8601Date)</D:creationdate>
-                    <D:getetag>"nulla-meta-0"</D:getetag>
-                  </D:prop>
-                  <D:status>HTTP/1.1 200 OK</D:status>
-                </D:propstat>
-              </D:response>
-            """
-            
-            // Append .VolumeIcon.icns
-            let iconURL = resolveBrandedIconURL()
-            let iconSize = (try? iconURL?.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 257601
-            xml += """
-              <D:response>
-                <D:href>\(childPrefix).VolumeIcon.icns</D:href>
-                <D:propstat>
-                  <D:prop>
-                    <D:resourcetype/>
-                    <D:displayname>.VolumeIcon.icns</D:displayname>
-                    <D:getcontentlength>\(iconSize)</D:getcontentlength>
-                    <D:getcontenttype>image/x-icns</D:getcontenttype>
-                    <D:getlastmodified>\(rfc1123Date)</D:getlastmodified>
-                    <D:creationdate>\(iso8601Date)</D:creationdate>
-                    <D:getetag>"nulla-volicon-\(iconSize)"</D:getetag>
-                  </D:prop>
-                  <D:status>HTTP/1.1 200 OK</D:status>
-                </D:propstat>
-              </D:response>
-            """
-            
             for node in nodes {
+                // Filter out any dotfiles or internal metadata files from Finder listings
+                if node.name.hasPrefix(".") {
+                    continue
+                }
+
                 let safeName = urlEncodePathSegment(node.name)
                 let href = "\(childPrefix)\(safeName)"
                 let escapedDisplayName = xmlEscape(node.name)
@@ -822,33 +886,58 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
             self.sendResponse(connection: connection, text: notFound)
             return
         }
-        
+
+        // Extract Range header if present
+        var rangeHeader: String? = nil
+        for line in requestString.components(separatedBy: "\r\n") {
+            if line.lowercased().hasPrefix("range:") {
+                rangeHeader = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+
+        // Instant SSD cache read-through check (<0.01s)
+        let cachedURL = getCachedFileURL(for: node)
+        if isNodeFullyCached(node: node) {
+            serveFromCache(
+                fileURL: cachedURL,
+                fileSize: node.sizeBytes,
+                rangeHeader: rangeHeader,
+                method: method,
+                connection: connection
+            )
+            return
+        }
+
         let streamURL = VaultService.shared.apiBaseURL.appendingPathComponent("api/nodes/\(node.id)/stream")
         var comp = URLComponents(url: streamURL, resolvingAgainstBaseURL: false)!
         comp.queryItems = [URLQueryItem(name: "token", value: token)]
-        
+
         guard let targetURL = comp.url else {
             let err = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             self.sendResponse(connection: connection, text: err)
             return
         }
-        
+
+        // Trigger background full file download to local SSD cache
+        FileDownloadCoordinator.shared.startBackgroundCache(
+            nodeId: node.id,
+            targetURL: targetURL,
+            destinationURL: cachedURL
+        )
+
         var upstreamRequest = URLRequest(url: targetURL)
         upstreamRequest.httpMethod = method
         upstreamRequest.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        
-        // Pass Range header if present
-        for line in requestString.components(separatedBy: "\r\n") {
-            if line.lowercased().hasPrefix("range:") {
-                let rangeVal = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
-                upstreamRequest.addValue(rangeVal, forHTTPHeaderField: "Range")
-            }
+
+        if let rangeVal = rangeHeader {
+            upstreamRequest.addValue(rangeVal, forHTTPHeaderField: "Range")
         }
-        
+
         let streamer = WebDAVStreamer(connection: connection, method: method)
         streamer.start(request: upstreamRequest)
     }
-    
+
     private func sendResponse(connection: NWConnection, text: String) {
         guard let data = text.data(using: .utf8) else {
             connection.cancel()
@@ -857,6 +946,39 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
         connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ _ in
             connection.cancel()
         }))
+    }
+}
+
+// MARK: - Background File Download Coordinator for SSD Stream Cache
+
+private final class FileDownloadCoordinator: @unchecked Sendable {
+    static let shared = FileDownloadCoordinator()
+    private var activeDownloads = Set<String>()
+    private let lock = NSLock()
+
+    func startBackgroundCache(nodeId: String, targetURL: URL, destinationURL: URL) {
+        lock.lock()
+        if activeDownloads.contains(nodeId) || FileManager.default.fileExists(atPath: destinationURL.path) {
+            lock.unlock()
+            return
+        }
+        activeDownloads.insert(nodeId)
+        lock.unlock()
+
+        let tempDestination = destinationURL.appendingPathExtension("download")
+        let task = URLSession.shared.downloadTask(with: targetURL) { [weak self] tempLocalURL, response, error in
+            defer {
+                self?.lock.lock()
+                self?.activeDownloads.remove(nodeId)
+                self?.lock.unlock()
+            }
+            guard let tempLocalURL = tempLocalURL, error == nil else { return }
+            try? FileManager.default.removeItem(at: tempDestination)
+            try? FileManager.default.moveItem(at: tempLocalURL, to: tempDestination)
+            try? FileManager.default.removeItem(at: destinationURL)
+            try? FileManager.default.moveItem(at: tempDestination, to: destinationURL)
+        }
+        task.resume()
     }
 }
 
@@ -1018,31 +1140,24 @@ extension VolumeMountService {
         startServer()
         
         Task {
-            // Force unmount any lingering /Volumes/Nulla or /Volumes/127.0.0.1 shares asynchronously
-            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/Nulla"])
+            // Force unmount any lingering /Volumes/localhost, /Volumes/127.0.0.1, or /Volumes/Nulla shares asynchronously
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/Nulla"])
-            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/Nulla"])
             
             let mountPoint = "/Volumes/Nulla"
             try? FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
             
-            // Mount as guest with silent flag (-s) and volume name (-v Nulla) via localhost
+            // Mount exclusively via mount_webdav directly to /Volumes/Nulla
+            // Do NOT use AppleScript "mount volume" which creates a duplicate "localhost" entry in Finder sidebar
             await runProcessAsync(
                 executable: "/sbin/mount_webdav",
-                arguments: ["-s", "-v", "Nulla", "http://guest:@localhost:\(self.port)/Nulla", mountPoint],
+                arguments: ["-s", "-v", "Nulla", "http://guest:@127.0.0.1:\(self.port)/Nulla", mountPoint],
                 timeoutSeconds: 4.0
             )
-            
-            // Fallback to NetFS via osascript if not yet mounted
-            let mountedURLs = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? []
-            if !mountedURLs.contains(where: { $0.path == mountPoint }) {
-                await runProcessAsync(
-                    executable: "/usr/bin/osascript",
-                    arguments: ["-e", "mount volume \"http://guest:@localhost:\(self.port)/Nulla\""],
-                    timeoutSeconds: 3.0
-                )
-            }
             
             try? await Task.sleep(nanoseconds: 800_000_000)
 
@@ -1064,6 +1179,8 @@ extension VolumeMountService {
         Task {
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/Nulla"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/Nulla"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/localhost"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             

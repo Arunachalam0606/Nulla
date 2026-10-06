@@ -72,13 +72,16 @@ export function useExplorerLogic() {
 
       const decryptedPromises = rawNodes.map(async (raw) => {
         try {
-          let name = raw.name || '';
-          if (!name && raw.name_encrypted && raw.name_iv) {
+          let name = '';
+          if ((raw.is_encrypted === 1 || !raw.name) && raw.name_encrypted && raw.name_iv) {
             name = await decryptMetadata(
               { ciphertext: raw.name_encrypted, iv: raw.name_iv },
               masterKey
             );
+          } else if (raw.name) {
+            name = raw.name;
           }
+
           if (!name) {
             name = `File_${raw.id.slice(0, 8)}`;
           }

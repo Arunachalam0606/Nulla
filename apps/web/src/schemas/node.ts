@@ -9,6 +9,7 @@ export const rawNodeSchema = z.object({
   name: z.string().nullable().optional(),
   name_encrypted: z.string().nullable().optional(),
   name_iv: z.string().nullable().optional(),
+  is_encrypted: z.number().nullable().optional(),
   type: nodeTypeSchema,
   size_bytes: z.number(),
   mime_type: z.string().nullable().optional(),

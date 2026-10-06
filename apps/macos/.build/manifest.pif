@@ -5,11 +5,11 @@
       "name" : "NullaMacOS",
       "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos",
       "projects" : [
-        "3b706cd28b84c800ce119fc63b25a964bca9aecbb978287d1a0fdb8d6d1eecbe",
+        "b9795bd29c642c5136c504eedddb6c913014d753c8057de8b080de241770339c",
         "3cdc725f5af38e9f33b68021e6eaec233c77aa170ea50b615bb0903570dab894"
       ]
     },
-    "signature" : "44cb637be0c7f3e601a13db1b18f45ba9f50e92b93b14539c61cd74ba7915ee5",
+    "signature" : "0136428d3d223adf60359ed099a275771fd67466464c2eba653b5e7a592a8fad",
     "type" : "workspace"
   },
   {
@@ -275,6 +275,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_2",
+                "name" : "OnboardingView.swift",
+                "path" : "OnboardingView.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_3",
                 "name" : "QuickSearchView.swift",
                 "path" : "QuickSearchView.swift",
                 "sourceTree" : "<group>",
@@ -282,7 +290,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_3",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_4",
                 "name" : "SettingsView.swift",
                 "path" : "SettingsView.swift",
                 "sourceTree" : "<group>",
@@ -290,7 +298,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_4",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_5",
                 "name" : "VaultService.swift",
                 "path" : "VaultService.swift",
                 "sourceTree" : "<group>",
@@ -298,7 +306,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_5",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_6",
                 "name" : "VolumeMountService.swift",
                 "path" : "VolumeMountService.swift",
                 "sourceTree" : "<group>",
@@ -423,6 +431,14 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_2",
+                "name" : "OnboardingView.swift",
+                "path" : "OnboardingView.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
                 "name" : "QuickSearchView.swift",
                 "path" : "QuickSearchView.swift",
                 "sourceTree" : "<group>",
@@ -430,7 +446,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_4",
                 "name" : "SettingsView.swift",
                 "path" : "SettingsView.swift",
                 "sourceTree" : "<group>",
@@ -438,7 +454,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_4",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_5",
                 "name" : "VaultService.swift",
                 "path" : "VaultService.swift",
                 "sourceTree" : "<group>",
@@ -446,7 +462,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_5",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_6",
                 "name" : "VolumeMountService.swift",
                 "path" : "VolumeMountService.swift",
                 "sourceTree" : "<group>",
@@ -476,15 +492,15 @@
         "ea75d56651ca5cd81c70f5df0b84f2b53d1cc845b56c564f30ac820030fbcf48",
         "7a35b71ef70577c05d6ca6e24ab47e7d219ce7911669c20cb2587944dc3525b5",
         "2764774e6300715bfff2ad93890fa0886fc9e1e04ab94f7dc68618e368530269",
-        "dc6dc19bf8119cd3941d9d8336cd7d949ea18181dd740fe9f7e17e0150c8664e",
+        "82bba2df8d8bd57b4e76bedf58c6a0c0dd058bc25c1c1f9d3a3c7cdb42f97dfe",
         "219ff8d3cb02553a776b80c7216460dc3ed448848315015b9dc68fc839c00eee",
         "11630759a0edb0527cb09d290228a4153a46e7751d86f793b98c4944d04fd939",
         "b228ccfb128c9b2fcf7f0492b1f166664b5d8f3e2f5f5e7957105bf738f41ded",
-        "9a60cfbda18a5caf08c035d7a37006ea5ae8cd31cfc4ace5f9a1c6ed98fc83c1",
+        "4e66e5b70b9f5f8cb5772362e667ee5d95fea329fcb8e509ddd49560548239b2",
         "8b5a7fa42fccea607894bb4b74859e9039864f6db12f780466d4131d93a32ca9"
       ]
     },
-    "signature" : "3b706cd28b84c800ce119fc63b25a964bca9aecbb978287d1a0fdb8d6d1eecbe",
+    "signature" : "b9795bd29c642c5136c504eedddb6c913014d753c8057de8b080de241770339c",
     "type" : "project"
   },
   {
@@ -1261,6 +1277,15 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_6",
+              "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::6",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0",
@@ -1304,7 +1329,7 @@
       "productTypeIdentifier" : "com.apple.product-type.tool",
       "type" : "standard"
     },
-    "signature" : "dc6dc19bf8119cd3941d9d8336cd7d949ea18181dd740fe9f7e17e0150c8664e",
+    "signature" : "82bba2df8d8bd57b4e76bedf58c6a0c0dd058bc25c1c1f9d3a3c7cdb42f97dfe",
     "type" : "target"
   },
   {
@@ -1853,6 +1878,15 @@
 
               ],
               "removeHeadersOnCopy" : "false"
+            },
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_6",
+              "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::6",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
             }
           ],
           "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0",
@@ -1883,7 +1917,7 @@
       "productTypeIdentifier" : "org.swift.product-type.common.object",
       "type" : "standard"
     },
-    "signature" : "9a60cfbda18a5caf08c035d7a37006ea5ae8cd31cfc4ace5f9a1c6ed98fc83c1",
+    "signature" : "4e66e5b70b9f5f8cb5772362e667ee5d95fea329fcb8e509ddd49560548239b2",
     "type" : "target"
   },
   {

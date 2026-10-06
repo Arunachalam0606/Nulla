@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 
+import { decryptChunk } from '@nulla/crypto';
+
 import type { DecryptedNode } from '@/schemas/node';
 
 import { useAuthStore } from '@/stores/authStore';
 
+import { fetchNodeChunks, streamChunkBytes } from '@/lib/api';
 import { formatBytes } from '@/lib/utils';
 
 import {
@@ -17,6 +20,7 @@ import {
   FilePdfIcon,
   FileZipIcon,
   FileCodeIcon,
+  LockKeyIcon,
 } from '@phosphor-icons/react';
 
 interface MediaPreviewModalProps {
@@ -28,12 +32,20 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
   const { node, onClose } = props;
 
   const token = useAuthStore((state) => state.token);
+  const masterKey = useAuthStore((state) => state.masterKey);
+  const masterKeyRaw = useAuthStore((state) => state.masterKeyRaw);
 
+  const defaultDecryptedUrl = '';
+  const defaultIsDecrypting = false;
+  const defaultDecryptProgress = 0;
   const defaultTextContent = '';
   const defaultIsTextLoading = false;
   const defaultTextError = '';
   const defaultIsCodecUnsupported = false;
 
+  const [decryptedUrl, setDecryptedUrl] = useState(defaultDecryptedUrl);
+  const [isDecrypting, setIsDecrypting] = useState(defaultIsDecrypting);
+  const [decryptProgress, setDecryptProgress] = useState(defaultDecryptProgress);
   const [textContent, setTextContent] = useState(defaultTextContent);
   const [isTextLoading, setIsTextLoading] = useState(defaultIsTextLoading);
   const [textError, setTextError] = useState(defaultTextError);
@@ -42,6 +54,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'https://nulla-worker.nulla-vault.workers.dev';
   const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
   const directStreamUrl = node ? `${apiBase}/api/nodes/${node.id}/stream${tokenParam}` : '';
+  const activeMediaUrl = decryptedUrl || directStreamUrl;
 
   const lowerName = node?.name?.toLowerCase() || '';
   const mime = node?.mimeType?.toLowerCase() || '';
@@ -112,15 +125,73 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
   };
 
   useEffect(() => {
-    if (!node || !isText || !directStreamUrl) return;
+    let objectUrlToRevoke: string | null = null;
+    let isCancelled = false;
+
+    async function resolveEncryptedMedia() {
+      if (!node || !token || !masterKey || !masterKeyRaw) return;
+
+      if (node.chunkCount > 0) {
+        try {
+          setIsDecrypting(true);
+          setDecryptProgress(0);
+          const chunkList = await fetchNodeChunks(token, node.id);
+
+          if (chunkList && chunkList.length > 0) {
+            const decryptedBuffers: Uint8Array[] = [];
+            for (let index = 0; index < chunkList.length; index++) {
+              if (isCancelled) return;
+              const chunk = chunkList[index];
+              const encryptedBytes = new Uint8Array(await streamChunkBytes(chunk.id));
+              const decryptedChunk = await decryptChunk(
+                masterKey,
+                masterKeyRaw,
+                chunk.chunk_index,
+                encryptedBytes
+              );
+              decryptedBuffers.push(decryptedChunk);
+              setDecryptProgress(Math.round(((index + 1) / chunkList.length) * 100));
+            }
+
+            if (isCancelled) return;
+            const blob = new Blob(decryptedBuffers as BlobPart[], {
+              type: node.mimeType || 'application/octet-stream',
+            });
+            objectUrlToRevoke = URL.createObjectURL(blob);
+            setDecryptedUrl(objectUrlToRevoke);
+            setIsDecrypting(false);
+            return;
+          }
+        } catch (err: unknown) {
+          console.warn('E2EE chunk decryption error:', err);
+        } finally {
+          if (!isCancelled) setIsDecrypting(false);
+        }
+      }
+
+      setDecryptedUrl('');
+    }
+
+    resolveEncryptedMedia();
+
+    return () => {
+      isCancelled = true;
+      if (objectUrlToRevoke) {
+        URL.revokeObjectURL(objectUrlToRevoke);
+      }
+    };
+  }, [node, token, masterKey, masterKeyRaw]);
+
+  useEffect(() => {
+    if (!node || !isText || !activeMediaUrl) return;
 
     const controller = new AbortController();
     setIsTextLoading(true);
     setTextError(defaultTextError);
 
-    fetch(directStreamUrl, {
+    fetch(activeMediaUrl, {
       signal: controller.signal,
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: !decryptedUrl && token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load file`);
@@ -137,7 +208,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
       });
 
     return () => controller.abort();
-  }, [node?.id, isText, directStreamUrl, token]);
+  }, [node?.id, isText, activeMediaUrl, decryptedUrl, token]);
 
   if (!node) return null;
 
@@ -163,7 +234,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
 
               <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                 <ShieldCheckIcon size={13} />
-                <span>Cloudflare R2 Native</span>
+                <span>{decryptedUrl ? 'AES-256 Decrypted in RAM' : 'Cloudflare R2 Native'}</span>
               </span>
 
               {isVideo && (
@@ -180,7 +251,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
 
           <div className="flex items-center gap-3">
             <a
-              href={directStreamUrl}
+              href={activeMediaUrl}
               download={node.name}
               className="flex items-center gap-1.5 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 text-xs px-3.5 py-1.5 rounded-full transition-all font-medium shadow-sm"
             >
@@ -199,10 +270,20 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
         </div>
 
         <div className="flex-1 p-6 flex flex-col items-center justify-center min-h-[360px] bg-neutral-50 dark:bg-[#161618] overflow-auto">
-          {isVideo && (
+          {isDecrypting && (
+            <div className="flex flex-col items-center gap-3 py-12">
+              <CircleNotchIcon size={32} className="animate-spin text-neutral-900 dark:text-white" />
+
+              <span className="text-xs text-neutral-600 dark:text-neutral-300 font-mono font-medium">
+                Decrypting AES-256 blocks in RAM ({decryptProgress}%)...
+              </span>
+            </div>
+          )}
+
+          {!isDecrypting && isVideo && (
             <div className="w-full flex items-center justify-center">
               <video
-                src={directStreamUrl}
+                src={activeMediaUrl}
                 controls
                 autoPlay
                 playsInline
@@ -213,37 +294,37 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
             </div>
           )}
 
-          {isImage && (
+          {!isDecrypting && isImage && (
             <div className="w-full flex items-center justify-center">
               <img
-                src={directStreamUrl}
+                src={activeMediaUrl}
                 alt={node.name}
                 className="max-h-[70vh] max-w-full object-contain rounded-xl border border-black/5 dark:border-white/10 shadow-md"
               />
             </div>
           )}
 
-          {isAudio && (
+          {!isDecrypting && isAudio && (
             <div className="w-full max-w-md bg-white dark:bg-[#1f1f23] p-8 rounded-2xl border border-black/5 dark:border-white/10 flex flex-col items-center gap-4 shadow-sm">
               <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-black/20 flex items-center justify-center text-neutral-800 dark:text-white">
                 <HardDrivesIcon size={32} />
               </div>
 
-              <audio src={directStreamUrl} controls autoPlay className="w-full" />
+              <audio src={activeMediaUrl} controls autoPlay className="w-full" />
             </div>
           )}
 
-          {isPdf && (
+          {!isDecrypting && isPdf && (
             <div className="w-full h-full flex items-center justify-center">
               <iframe
-                src={directStreamUrl}
+                src={activeMediaUrl}
                 title={node.name}
                 className="w-full h-[75vh] rounded-xl border border-black/5 dark:border-white/10 bg-white shadow-sm"
               />
             </div>
           )}
 
-          {isText && (
+          {!isDecrypting && isText && (
             <div className="w-full h-full flex flex-col items-center justify-center">
               {isTextLoading && (
                 <div className="flex flex-col items-center gap-3 py-12">
@@ -291,7 +372,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
               </div>
 
               <a
-                href={directStreamUrl}
+                href={activeMediaUrl}
                 download={node.name}
                 className="flex items-center gap-2 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold px-5 py-2.5 rounded-full shadow-sm hover:opacity-90 transition-all"
               >

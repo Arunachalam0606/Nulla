@@ -37,6 +37,8 @@ describe('Nulla Cryptographic Engine (@nulla/crypto)', () => {
     expect(encrypted.ciphertext).toBeDefined();
     expect(encrypted.iv).toBeDefined();
     expect(encrypted.ciphertext).not.toBe(plaintext);
+    expect(encrypted.ciphertext).not.toContain('/');
+    expect(encrypted.ciphertext).not.toContain('+');
 
     const decrypted = await decryptMetadata(encrypted, keys.masterKey);
     expect(decrypted).toBe(plaintext);

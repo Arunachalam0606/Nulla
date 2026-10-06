@@ -24,13 +24,29 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+export function uint8ArrayToBase64Url(bytes: Uint8Array): string {
+  return uint8ArrayToBase64(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
 export function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
+  // Normalize URL-safe base64 to standard base64 and add padding if missing
+  let standardBase64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+  while (standardBase64.length % 4 !== 0) {
+    standardBase64 += '=';
+  }
+  const binary = atob(standardBase64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+export function base64UrlToUint8Array(base64Url: string): Uint8Array {
+  return base64ToUint8Array(base64Url);
 }
 
 export async function sha256(data: ArrayBuffer | Uint8Array): Promise<string> {

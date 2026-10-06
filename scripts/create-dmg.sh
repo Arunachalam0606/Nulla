@@ -52,6 +52,9 @@ hdiutil create \
   -format UDZO \
   "$DMG_OUTPUT"
 
+echo "==> Cleaning up staging directory..."
+rm -rf "$DIST_DIR"
+
 echo "==> Checking DMG size and checksum..."
 ls -lh "$DMG_OUTPUT"
 

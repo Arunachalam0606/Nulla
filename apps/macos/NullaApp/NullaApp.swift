@@ -8,6 +8,7 @@ import SwiftUI
 import AppKit
 import FileProvider
 import UniformTypeIdentifiers
+import ServiceManagement
 import NullaShared
 
 @main
@@ -37,6 +38,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Setup Menu Bar Status Item with Drag & Drop Ingestion
         setupStatusItem()
+        
+        // Register Login Items & Background Activity (macOS 13+)
+        if #available(macOS 13.0, *) {
+            let service = SMAppService.mainApp
+            if service.status != .enabled {
+                try? service.register()
+            }
+        }
         
         // Start lightweight WebDAV server and mount /Volumes/Nulla
         VolumeMountService.shared.startServer()

@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@nulla/crypto"],
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
+  transpilePackages: ['@nulla/crypto'],
 };
 
 export default nextConfig;

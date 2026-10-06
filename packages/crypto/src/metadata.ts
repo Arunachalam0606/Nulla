@@ -3,7 +3,7 @@ import type { EncryptedMetadata } from './types';
 import {
   bufferToHex,
   hexToUint8Array,
-  uint8ArrayToBase64,
+  uint8ArrayToBase64Url,
   base64ToUint8Array,
 } from './utils';
 
@@ -32,7 +32,7 @@ export async function encryptMetadata(
   );
 
   return {
-    ciphertext: uint8ArrayToBase64(new Uint8Array(encryptedBuffer)),
+    ciphertext: uint8ArrayToBase64Url(new Uint8Array(encryptedBuffer)),
     iv: bufferToHex(iv),
   };
 }
