@@ -17,6 +17,7 @@ interface ExplorerState {
   uploadQueue: UploadQueueItem[];
   previewNode: DecryptedNode | null;
   isE2eeVaultEnabled: boolean;
+  loadDuration: string | null;
   setCurrentParentId: (id: string | null) => void;
   setBreadcrumbs: (breadcrumbs: BreadcrumbItem[]) => void;
   pushBreadcrumb: (item: BreadcrumbItem) => void;
@@ -28,11 +29,19 @@ interface ExplorerState {
   setSearchQuery: (query: string) => void;
   setUploadDrawerOpen: (open: boolean) => void;
   setIsE2eeVaultEnabled: (enabled: boolean) => void;
+  setLoadDuration: (duration: string | null) => void;
   addUploadQueueItem: (item: UploadQueueItem) => void;
   updateUploadQueueItem: (id: string, updates: Partial<UploadQueueItem>) => void;
   setPreviewNode: (node: DecryptedNode | null) => void;
   reset: () => void;
 }
+
+const getInitialE2eeState = (): boolean => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('nulla_e2ee_mode_active') === 'true';
+  }
+  return false;
+};
 
 const initialState: Omit<
   ExplorerState,
@@ -47,6 +56,7 @@ const initialState: Omit<
   | 'setSearchQuery'
   | 'setUploadDrawerOpen'
   | 'setIsE2eeVaultEnabled'
+  | 'setLoadDuration'
   | 'addUploadQueueItem'
   | 'updateUploadQueueItem'
   | 'setPreviewNode'
@@ -61,7 +71,8 @@ const initialState: Omit<
   isUploadDrawerOpen: false,
   uploadQueue: [],
   previewNode: null,
-  isE2eeVaultEnabled: false,
+  isE2eeVaultEnabled: getInitialE2eeState(),
+  loadDuration: null,
 };
 
 export const useExplorerStore = create<ExplorerState>((set) => ({
@@ -89,7 +100,14 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
 
   setUploadDrawerOpen: (isUploadDrawerOpen) => set({ isUploadDrawerOpen }),
 
-  setIsE2eeVaultEnabled: (isE2eeVaultEnabled) => set({ isE2eeVaultEnabled }),
+  setIsE2eeVaultEnabled: (isE2eeVaultEnabled) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nulla_e2ee_mode_active', String(isE2eeVaultEnabled));
+    }
+    set({ isE2eeVaultEnabled });
+  },
+
+  setLoadDuration: (loadDuration) => set({ loadDuration }),
 
   addUploadQueueItem: (item) =>
     set((state) => ({ uploadQueue: [item, ...state.uploadQueue] })),

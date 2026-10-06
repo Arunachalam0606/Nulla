@@ -22,6 +22,8 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
     @Published public var currentUploadFileName: String = ""
     @Published public var errorMessage: String? = nil
     @Published public var nodes: [VaultNodeItem] = []
+    @Published public var userStorageQuotaBytes: Int64 = 5_368_709_120 // 5 GB Default
+    @Published public var userStorageUsedBytes: Int64 = 0
     
     public var apiBaseURL: URL {
         if let sharedDefaults = UserDefaults(suiteName: "group.app.nulla.macos"),
@@ -254,6 +256,8 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
         self.cloudStorageUsed = "0 bytes"
         self.localDiskUsed = "0 bytes"
         self.nodes = []
+        self.userStorageQuotaBytes = 5_368_709_120
+        self.userStorageUsedBytes = 0
     }
     
     // MARK: - Live Storage Telemetry
@@ -321,6 +325,12 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
             self.cloudStorageUsed = formatByteCount(totalBytes)
             self.localDiskUsed = "0 bytes"
             self.nodes = decryptedItems
+            if let quota = result.storage_quota_bytes {
+                self.userStorageQuotaBytes = quota
+            }
+            if let used = result.storage_used_bytes {
+                self.userStorageUsedBytes = used
+            }
         } catch {
             // On network failure or offline, keep real 0 bytes or cached status
         }
@@ -544,6 +554,8 @@ private struct UserPayload: Decodable {
 
 private struct NodesListResponse: Decodable {
     let nodes: [RawNodeItem]
+    let storage_quota_bytes: Int64?
+    let storage_used_bytes: Int64?
 }
 
 private struct RawNodeItem: Decodable {

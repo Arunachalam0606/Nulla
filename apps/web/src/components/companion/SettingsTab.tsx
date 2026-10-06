@@ -45,9 +45,17 @@ export const SettingsTab = (props: SettingsTabProps) => {
     ? `${masterKeyHex.substring(0, 8)}••••••••••••••••••••••••••••••••${masterKeyHex.substring(masterKeyHex.length - 8)}`
     : 'Not loaded in memory';
 
+  const handleToggleE2ee = () => {
+    const nextVal = !e2eeVaultEnabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nulla_e2ee_mode_active', String(nextVal));
+    }
+    onToggleE2eeVault?.(nextVal);
+  };
+
   return (
     <section className="flex flex-col gap-8 max-w-4xl w-full">
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-6">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-6">
         <div className="border-b border-black/5 dark:border-white/5 pb-4">
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
             <span>Interaction & Sync Preferences</span>
@@ -79,7 +87,7 @@ export const SettingsTab = (props: SettingsTabProps) => {
             </div>
 
             <button
-              onClick={() => onToggleE2eeVault?.(!e2eeVaultEnabled)}
+              onClick={handleToggleE2ee}
               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ${
                 e2eeVaultEnabled ? 'bg-neutral-900 dark:bg-white justify-end' : 'bg-neutral-200 dark:bg-neutral-700 justify-start'
               }`}
@@ -198,7 +206,7 @@ export const SettingsTab = (props: SettingsTabProps) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
             <KeyIcon size={18} />
@@ -222,7 +230,7 @@ export const SettingsTab = (props: SettingsTabProps) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
             <span>Browser Session</span>

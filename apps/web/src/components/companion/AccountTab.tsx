@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
   WarningCircleIcon,
   CircleNotchIcon,
+  TrashIcon,
 } from '@phosphor-icons/react';
 
 interface AccountTabProps {
@@ -18,6 +19,7 @@ interface AccountTabProps {
   devices: Device[];
   isLoading: boolean;
   onRevoke: (deviceId: string) => void;
+  onDeleteDevice?: (deviceId: string) => void;
 }
 
 export const AccountTab = (props: AccountTabProps) => {
@@ -26,17 +28,18 @@ export const AccountTab = (props: AccountTabProps) => {
     devices,
     isLoading,
     onRevoke,
+    onDeleteDevice,
   } = props;
 
   const usedBytes = user?.storage_used_bytes || 0;
-  const quotaBytes = user?.storage_quota_bytes || 1099511627776;
+  const quotaBytes = user?.storage_quota_bytes || 107374182400;
   const percentUsed = quotaBytes > 0 ? Math.min(100, Math.max(1, Math.round((usedBytes / quotaBytes) * 100))) : 0;
 
   const macs = devices.filter((d) => d.device_type === 'mac' || d.device_name.toLowerCase().includes('mac'));
 
   return (
     <section className="flex flex-col gap-6 max-w-4xl w-full">
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full bg-neutral-100 dark:bg-[#28282d] border border-black/5 dark:border-white/10 flex items-center justify-center text-neutral-900 dark:text-white font-mono text-lg font-bold shadow-inner">
             <span>{user?.email?.charAt(0).toUpperCase() || 'U'}</span>
@@ -67,7 +70,7 @@ export const AccountTab = (props: AccountTabProps) => {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-4">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-neutral-900 dark:text-white">
             <HardDriveIcon size={18} />
@@ -100,7 +103,7 @@ export const AccountTab = (props: AccountTabProps) => {
         </div>
       </div>
 
-      <div className="border border-black/5 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1f1f23] shadow-sm overflow-hidden flex flex-col">
+      <div className="border border-black/5 dark:border-white/10 rounded-2xl bg-white dark:bg-[#1c1c1f] shadow-sm overflow-hidden flex flex-col">
         <div className="p-6 border-b border-black/5 dark:border-white/10 flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
@@ -178,15 +181,36 @@ export const AccountTab = (props: AccountTabProps) => {
                   </div>
 
                   <div>
-                    {!isRevoked && (
+                    {isRevoked ? (
                       <button
-                        onClick={() => onRevoke(device.id)}
-                        className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-950/60 hover:bg-red-50 dark:hover:bg-red-950/30 px-3 py-1.5 rounded-full transition-colors font-medium"
+                        onClick={() => (onDeleteDevice ? onDeleteDevice(device.id) : onRevoke(device.id))}
+                        className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-950/60 hover:bg-red-50 dark:hover:bg-red-950/30 px-3.5 py-1.5 rounded-full transition-colors font-medium shadow-sm"
                       >
-                        <ProhibitIcon size={14} />
+                        <TrashIcon size={13} />
 
-                        <span>Sign Out</span>
+                        <span>Delete Device</span>
                       </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onRevoke(device.id)}
+                          className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400 border border-black/10 dark:border-white/10 hover:border-red-200 dark:hover:border-red-900 px-3 py-1.5 rounded-full transition-colors font-medium"
+                        >
+                          <ProhibitIcon size={14} />
+
+                          <span>Disconnect</span>
+                        </button>
+
+                        {onDeleteDevice && (
+                          <button
+                            onClick={() => onDeleteDevice(device.id)}
+                            title="Delete hardware record"
+                            className="p-1.5 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          >
+                            <TrashIcon size={14} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

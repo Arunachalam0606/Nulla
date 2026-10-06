@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     salt TEXT NOT NULL,
     server_auth_hash TEXT NOT NULL,
-    storage_quota_bytes INTEGER NOT NULL DEFAULT 107374182400, -- 100 GB default
+    storage_quota_bytes INTEGER NOT NULL DEFAULT 5368709120, -- 5 GB default
     storage_used_bytes INTEGER NOT NULL DEFAULT 0,
     role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -102,6 +102,17 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- 9. System Settings (Storage Tier & Global Caps)
+CREATE TABLE IF NOT EXISTS system_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO system_settings (key, value) VALUES
+    ('storage_tier_mode', 'free_capped'),
+    ('global_quota_bytes', '10737418240');
+
 -- High-Performance Query Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_devices_user_id ON devices(user_id);
@@ -112,3 +123,4 @@ CREATE INDEX IF NOT EXISTS idx_node_chunks_r2_key ON node_chunks(r2_object_key);
 CREATE INDEX IF NOT EXISTS idx_shares_token ON shares(token);
 CREATE INDEX IF NOT EXISTS idx_file_requests_token ON file_requests(token);
 CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+

@@ -236,11 +236,30 @@ const authMiddleware = async (c: any, next: any) => {
 // Admin authorization guard
 const adminMiddleware = async (c: any, next: any) => {
   const adminKeyHeader = c.req.header('X-Admin-Key');
-  if (adminKeyHeader && timingSafeEqual(adminKeyHeader, c.env.ADMIN_API_KEY)) {
+  if (adminKeyHeader && c.env.ADMIN_API_KEY && timingSafeEqual(adminKeyHeader, c.env.ADMIN_API_KEY)) {
     return await next();
   }
 
-  const userRole = c.get('userRole');
+  let userRole = c.get('userRole');
+  if (!userRole) {
+    let token = '';
+    const authHeader = c.req.header('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    } else if (c.req.query('token')) {
+      token = c.req.query('token').trim();
+    }
+    if (token) {
+      const payload = await verifyJWT(token, c.env.JWT_SECRET);
+      if (payload && payload.userId) {
+        c.set('userId', payload.userId as string);
+        c.set('userRole', (payload.role as 'user' | 'admin') || 'user');
+        c.set('userEmail', payload.email as string);
+        userRole = payload.role;
+      }
+    }
+  }
+
   if (userRole === 'admin') {
     return await next();
   }
@@ -317,7 +336,7 @@ app.post('/api/auth/register', async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare(`
       INSERT INTO users (id, email, salt, server_auth_hash, storage_quota_bytes, storage_used_bytes, role)
-      VALUES (?, ?, ?, ?, 107374182400, 0, 'user')
+      VALUES (?, ?, ?, ?, 5368709120, 0, 'user')
     `).bind(userId, normalizedEmail, salt, serverAuthHash),
 
     c.env.DB.prepare(`
@@ -342,7 +361,7 @@ app.post('/api/auth/register', async (c) => {
     user: {
       id: userId,
       email: normalizedEmail,
-      storage_quota_bytes: 107374182400,
+      storage_quota_bytes: 5368709120,
       storage_used_bytes: 0,
       role: 'user',
     },
@@ -595,8 +614,15 @@ app.get('/api/nodes', authMiddleware, async (c) => {
   }
 
   try {
-    const result = await c.env.DB.prepare(query).bind(...params).all();
-    return c.json({ nodes: result.results || [] });
+    const [result, userRow] = await Promise.all([
+      c.env.DB.prepare(query).bind(...params).all(),
+      c.env.DB.prepare('SELECT storage_quota_bytes, storage_used_bytes FROM users WHERE id = ?').bind(userId).first(),
+    ]);
+    return c.json({
+      nodes: result.results || [],
+      storage_quota_bytes: Number(userRow?.storage_quota_bytes || 5368709120),
+      storage_used_bytes: Number(userRow?.storage_used_bytes || 0),
+    });
   } catch (err: any) {
     // Graceful fallback if name/mime_type column addition is still pending
     const fallbackQuery = `
@@ -609,8 +635,15 @@ app.get('/api/nodes', authMiddleware, async (c) => {
       WHERE user_id = ?
     ` + (includeDeleted ? ` AND status = 'deleted' ORDER BY deleted_at DESC` :
       (` AND status != 'deleted'` + (parentId ? ` AND parent_id = ?` : (!all && c.req.query('root_only') === 'true' ? ` AND parent_id IS NULL` : '')) + ` ORDER BY type DESC, created_at DESC`));
-    const fallbackResult = await c.env.DB.prepare(fallbackQuery).bind(...params).all();
-    return c.json({ nodes: fallbackResult.results || [] });
+    const [fallbackResult, userRow] = await Promise.all([
+      c.env.DB.prepare(fallbackQuery).bind(...params).all(),
+      c.env.DB.prepare('SELECT storage_quota_bytes, storage_used_bytes FROM users WHERE id = ?').bind(userId).first(),
+    ]);
+    return c.json({
+      nodes: fallbackResult.results || [],
+      storage_quota_bytes: Number(userRow?.storage_quota_bytes || 5368709120),
+      storage_used_bytes: Number(userRow?.storage_used_bytes || 0),
+    });
   }
 });
 
@@ -1096,6 +1129,95 @@ app.delete('/api/nodes/:id/permanent', authMiddleware, async (c) => {
   ]);
 
   return c.json({ success: true, message: 'Node and encrypted chunks permanently deleted' });
+});
+
+// Purge selected soft-deleted nodes in bulk
+app.post('/api/nodes/purge-bulk', authMiddleware, async (c) => {
+  const userId = c.get('userId');
+  const body = await c.req.json().catch(() => ({}));
+  const nodeIds = Array.isArray(body?.nodeIds) ? (body.nodeIds as string[]) : [];
+
+  if (nodeIds.length === 0) {
+    return c.json({ error: 'No nodeIds provided for bulk purge' }, 400);
+  }
+
+  let totalPurged = 0;
+  let totalReclaimedBytes = 0;
+
+  for (const nodeId of nodeIds) {
+    const node = await c.env.DB.prepare('SELECT id, size_bytes FROM nodes WHERE id = ? AND user_id = ? AND status = "deleted"')
+      .bind(nodeId, userId)
+      .first();
+
+    if (!node) continue;
+
+    const chunks = await c.env.DB.prepare('SELECT r2_object_key FROM node_chunks WHERE node_id = ?')
+      .bind(nodeId)
+      .all();
+
+    const r2Keys = (chunks.results || []).map((r: any) => r.r2_object_key as string);
+    if (r2Keys.length > 0) {
+      await c.env.STORAGE_BUCKET.delete(r2Keys);
+    }
+
+    const sizeBytes = (node.size_bytes as number) || 0;
+    totalReclaimedBytes += sizeBytes;
+    totalPurged += 1;
+
+    await c.env.DB.prepare('DELETE FROM nodes WHERE id = ? AND user_id = ?')
+      .bind(nodeId, userId)
+      .run();
+  }
+
+  if (totalReclaimedBytes > 0) {
+    await c.env.DB.prepare('UPDATE users SET storage_used_bytes = MAX(0, storage_used_bytes - ?) WHERE id = ?')
+      .bind(totalReclaimedBytes, userId)
+      .run();
+  }
+
+  return c.json({ success: true, purgedCount: totalPurged, reclaimedBytes: totalReclaimedBytes });
+});
+
+// Purge all soft-deleted nodes from Trash
+app.post('/api/nodes/purge-all', authMiddleware, async (c) => {
+  const userId = c.get('userId');
+
+  const deletedNodes = await c.env.DB.prepare('SELECT id, size_bytes FROM nodes WHERE user_id = ? AND status = "deleted"')
+    .bind(userId)
+    .all();
+
+  const nodesList = deletedNodes.results || [];
+  if (nodesList.length === 0) {
+    return c.json({ success: true, purgedCount: 0, reclaimedBytes: 0 });
+  }
+
+  let totalReclaimedBytes = 0;
+  for (const node of nodesList) {
+    const nodeId = node.id as string;
+    const sizeBytes = (node.size_bytes as number) || 0;
+    totalReclaimedBytes += sizeBytes;
+
+    const chunks = await c.env.DB.prepare('SELECT r2_object_key FROM node_chunks WHERE node_id = ?')
+      .bind(nodeId)
+      .all();
+
+    const r2Keys = (chunks.results || []).map((r: any) => r.r2_object_key as string);
+    if (r2Keys.length > 0) {
+      await c.env.STORAGE_BUCKET.delete(r2Keys);
+    }
+
+    await c.env.DB.prepare('DELETE FROM nodes WHERE id = ? AND user_id = ?')
+      .bind(nodeId, userId)
+      .run();
+  }
+
+  if (totalReclaimedBytes > 0) {
+    await c.env.DB.prepare('UPDATE users SET storage_used_bytes = MAX(0, storage_used_bytes - ?) WHERE id = ?')
+      .bind(totalReclaimedBytes, userId)
+      .run();
+  }
+
+  return c.json({ success: true, purgedCount: nodesList.length, reclaimedBytes: totalReclaimedBytes });
 });
 
 // ---------------------------------------------------------------------------
@@ -1633,9 +1755,57 @@ app.post('/api/devices/:id/revoke', authMiddleware, async (c) => {
   return c.json({ success: true, message: 'Device session revoked immediately' });
 });
 
+// Delete a device session permanently
+app.delete('/api/devices/:id', authMiddleware, async (c) => {
+  const userId = c.get('userId');
+  const targetDeviceId = c.req.param('id');
+
+  await c.env.DB.prepare(`
+    DELETE FROM devices
+    WHERE id = ? AND user_id = ?
+  `)
+    .bind(targetDeviceId, userId)
+    .run();
+
+  return c.json({ success: true, message: 'Device session deleted successfully' });
+});
+
 // ---------------------------------------------------------------------------
 // Public Share Links (/s/:token#key)
 // ---------------------------------------------------------------------------
+
+// List active share links created by authenticated user
+app.get('/api/shares', authMiddleware, async (c) => {
+  const userId = c.get('userId');
+
+  const shares = await c.env.DB.prepare(`
+    SELECT s.id, s.token, s.node_id, s.permission, s.created_at, s.expires_at,
+           n.name_encrypted, n.name_iv, n.size_bytes, n.type
+    FROM shares s
+    LEFT JOIN nodes n ON s.node_id = n.id
+    WHERE s.user_id = ?
+    ORDER BY s.created_at DESC
+  `)
+    .bind(userId)
+    .all();
+
+  return c.json({ shares: shares.results || [] });
+});
+
+// Revoke and delete a specific share link
+app.delete('/api/shares/:id', authMiddleware, async (c) => {
+  const userId = c.get('userId');
+  const targetShareId = c.req.param('id');
+
+  await c.env.DB.prepare(`
+    DELETE FROM shares
+    WHERE (id = ? OR token = ?) AND user_id = ?
+  `)
+    .bind(targetShareId, targetShareId, userId)
+    .run();
+
+  return c.json({ success: true, message: 'Share link deleted immediately' });
+});
 
 // Create share link record
 app.post('/api/shares', authMiddleware, async (c) => {
@@ -1840,6 +2010,129 @@ app.get('/api/admin/metrics', adminMiddleware, async (c) => {
         timestamp: new Date().toISOString(),
       },
     },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Admin System & Quota Management
+// ---------------------------------------------------------------------------
+
+app.get('/api/admin/system', adminMiddleware, async (c) => {
+  const modeRow = await c.env.DB.prepare("SELECT value FROM system_settings WHERE key = 'storage_tier_mode'").first();
+  const globalCapRow = await c.env.DB.prepare("SELECT value FROM system_settings WHERE key = 'global_quota_bytes'").first();
+
+  const storageTierMode = (modeRow?.value as string) || 'free_capped';
+  const globalCapBytes = Number(globalCapRow?.value || 10737418240); // 10 GB default
+
+  const aggregate = await c.env.DB.prepare(`
+    SELECT SUM(storage_used_bytes) as total_used, SUM(storage_quota_bytes) as total_allocated
+    FROM users
+  `).first();
+
+  const totalUsed = Number(aggregate?.total_used || 0);
+  const totalAllocated = Number(aggregate?.total_allocated || 0);
+  const isUnlimited = storageTierMode === 'unlimited';
+
+  return c.json({
+    storage_tier_mode: storageTierMode,
+    global_cap_bytes: globalCapBytes,
+    total_used_bytes: totalUsed,
+    total_allocated_bytes: totalAllocated,
+    is_unlimited: isUnlimited,
+    percentage_used: globalCapBytes > 0 ? Math.round((totalUsed / globalCapBytes) * 100) : 0,
+    percentage_allocated: globalCapBytes > 0 ? Math.round((totalAllocated / globalCapBytes) * 100) : 0,
+  });
+});
+
+app.post('/api/admin/system/unlock-unlimited', adminMiddleware, async (c) => {
+  let requestedMode: string | null = null;
+  try {
+    const body = await c.req.json();
+    if (body.mode) {
+      requestedMode = body.mode === 'unlimited' ? 'unlimited' : 'free_capped';
+    } else if (body.unlock !== undefined) {
+      requestedMode = body.unlock ? 'unlimited' : 'free_capped';
+    }
+  } catch {
+    // Body is optional; if omitted, toggle
+  }
+
+  if (!requestedMode) {
+    const current = await c.env.DB.prepare("SELECT value FROM system_settings WHERE key = 'storage_tier_mode'").first();
+    requestedMode = (current?.value === 'unlimited') ? 'free_capped' : 'unlimited';
+  }
+
+  await c.env.DB.prepare(`
+    INSERT INTO system_settings (key, value, updated_at)
+    VALUES ('storage_tier_mode', ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).bind(requestedMode).run();
+
+  return c.json({
+    success: true,
+    storage_tier_mode: requestedMode,
+    is_unlimited: requestedMode === 'unlimited',
+  });
+});
+
+app.get('/api/admin/users', adminMiddleware, async (c) => {
+  const users = await c.env.DB.prepare(`
+    SELECT id, email, role, storage_used_bytes, storage_quota_bytes, created_at, updated_at
+    FROM users
+    ORDER BY created_at ASC
+  `).all();
+
+  return c.json({
+    users: users.results || [],
+  });
+});
+
+app.put('/api/admin/users/:id/quota', adminMiddleware, async (c) => {
+  const userId = c.req.param('id');
+  const body = await c.req.json();
+  const quotaBytes = Number(body.quota_bytes);
+
+  if (!quotaBytes || isNaN(quotaBytes) || quotaBytes <= 0) {
+    return c.json({ error: 'Valid quota_bytes is required' }, 400);
+  }
+
+  const modeRow = await c.env.DB.prepare("SELECT value FROM system_settings WHERE key = 'storage_tier_mode'").first();
+  const storageTierMode = (modeRow?.value as string) || 'free_capped';
+
+  if (storageTierMode === 'free_capped') {
+    const globalCapRow = await c.env.DB.prepare("SELECT value FROM system_settings WHERE key = 'global_quota_bytes'").first();
+    const globalCapBytes = Number(globalCapRow?.value || 10737418240); // 10 GB
+
+    const otherUsersAllocated = await c.env.DB.prepare(`
+      SELECT SUM(storage_quota_bytes) as total
+      FROM users
+      WHERE id != ?
+    `).bind(userId).first();
+
+    const otherTotal = Number(otherUsersAllocated?.total || 0);
+    const newTotal = otherTotal + quotaBytes;
+
+    if (newTotal > globalCapBytes) {
+      return c.json({
+        error: `Exceeds 10 GB global free tier limit. Allocating ${(quotaBytes / (1024 * 1024 * 1024)).toFixed(2)} GB would bring total allocated to ${(newTotal / (1024 * 1024 * 1024)).toFixed(2)} GB (max: ${(globalCapBytes / (1024 * 1024 * 1024)).toFixed(2)} GB). Please reduce quota or unlock unlimited storage.`
+      }, 400);
+    }
+  }
+
+  const result = await c.env.DB.prepare(`
+    UPDATE users
+    SET storage_quota_bytes = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).bind(quotaBytes, userId).run();
+
+  if (result.meta?.changes === 0) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  return c.json({
+    success: true,
+    user_id: userId,
+    storage_quota_bytes: quotaBytes,
   });
 });
 

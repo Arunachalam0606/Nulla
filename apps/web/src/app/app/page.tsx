@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { Suspense, useState, useRef } from 'react';
 import Link from 'next/link';
 
 import type { DecryptedNode } from '@/schemas/node';
@@ -41,7 +41,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 
-export default function CompanionAppPage() {
+function CompanionAppContent() {
   const {
     user,
     token,
@@ -51,9 +51,11 @@ export default function CompanionAppPage() {
     activeTab,
     devices,
     trashNodes,
+    activeShares,
     sharedSubTab,
     isLoadingDevices,
     isLoadingTrash,
+    isLoadingShares,
     hardwareAccel,
     stream4k,
     notifications,
@@ -67,8 +69,12 @@ export default function CompanionAppPage() {
     setNotifications,
     setFinderBadges,
     handleRevokeDevice,
+    handleDeleteDevice,
+    handleDeleteShare,
     handleRestoreTrash,
     handlePurgeTrash,
+    handlePurgeBulkTrash,
+    handlePurgeAllTrash,
     handleSignOutBrowser,
   } = useCompanionLogic();
 
@@ -81,6 +87,7 @@ export default function CompanionAppPage() {
     uploadQueue,
     previewNode,
     isE2eeVaultEnabled,
+    loadDuration,
     setViewMode,
     setUploadDrawerOpen,
     setIsE2eeVaultEnabled,
@@ -242,6 +249,7 @@ export default function CompanionAppPage() {
             devices={devices}
             isLoading={isLoadingDevices}
             onRevoke={handleRevokeDevice}
+            onDeleteDevice={handleDeleteDevice}
           />
         )}
 
@@ -253,6 +261,9 @@ export default function CompanionAppPage() {
             onTabChange={setSharedSubTab}
             token={token}
             masterKeyHex={masterKeyHex}
+            activeShares={activeShares}
+            isLoading={isLoadingShares}
+            onDeleteShare={handleDeleteShare}
           />
         )}
 
@@ -280,6 +291,8 @@ export default function CompanionAppPage() {
             isLoading={isLoadingTrash}
             onRestore={handleRestoreTrash}
             onPurge={handlePurgeTrash}
+            onPurgeBulk={handlePurgeBulkTrash}
+            onPurgeAll={handlePurgeAllTrash}
           />
         )}
 
@@ -290,7 +303,11 @@ export default function CompanionAppPage() {
             className="flex flex-col flex-1"
           >
             <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-6">
-              <Breadcrumbs breadcrumbs={breadcrumbs} onNavigate={handleNavigateBreadcrumb} />
+              <Breadcrumbs
+                breadcrumbs={breadcrumbs}
+                loadDuration={loadDuration}
+                onNavigate={handleNavigateBreadcrumb}
+              />
 
               <div className="flex items-center gap-3">
                 <div className="flex items-center bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 rounded-full p-1 shadow-sm">
@@ -567,5 +584,25 @@ export default function CompanionAppPage() {
         </section>
       )}
     </section>
+  );
+}
+
+export default function CompanionAppPage() {
+  return (
+    <Suspense
+      fallback={
+        <section className="min-h-screen bg-[#fbfbfd] dark:bg-[#161618] flex flex-col items-center justify-center p-6 transition-colors">
+          <div className="flex flex-col items-center gap-3">
+            <CircleNotchIcon size={32} className="text-neutral-900 dark:text-white animate-spin" />
+
+            <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              Loading Nulla Secure Session...
+            </span>
+          </div>
+        </section>
+      }
+    >
+      <CompanionAppContent />
+    </Suspense>
   );
 }

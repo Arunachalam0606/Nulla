@@ -10,7 +10,11 @@ import {
   fileRequestSchema,
   publicFileRequestResponseSchema,
 } from '@/schemas/share';
-import { adminTelemetrySchema } from '@/schemas/admin';
+import {
+  adminTelemetrySchema,
+  adminSystemSettingsSchema,
+  adminUsersResponseSchema,
+} from '@/schemas/admin';
 import { z } from 'zod';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8787';
@@ -176,6 +180,28 @@ export async function permanentDeleteNode(token: string, nodeId: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) throw new Error('Failed to permanently delete node');
+  return await response.json();
+}
+
+export async function purgeBulkNodes(token: string, nodeIds: string[]) {
+  const response = await fetch(`${API_BASE_URL}/api/nodes/purge-bulk`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ nodeIds }),
+  });
+  if (!response.ok) throw new Error('Failed to purge selected nodes');
+  return await response.json();
+}
+
+export async function purgeAllTrashNodes(token: string) {
+  const response = await fetch(`${API_BASE_URL}/api/nodes/purge-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Failed to empty trash');
   return await response.json();
 }
 
@@ -589,6 +615,32 @@ export async function revokeDeviceSession(token: string, deviceId: string) {
   return await response.json();
 }
 
+export async function deleteDeviceSession(token: string, deviceId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Failed to delete device session');
+  return await response.json();
+}
+
+export async function fetchUserShareLinks(token: string) {
+  const response = await fetch(`${API_BASE_URL}/api/shares`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Failed to fetch user shares');
+  return await response.json();
+}
+
+export async function deleteShareLink(token: string, shareId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/shares/${shareId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Failed to delete share link');
+  return await response.json();
+}
+
 export async function createShareLink(
   token: string,
   nodeId: string,
@@ -688,3 +740,69 @@ export async function uploadNodeThumbnail(token: string, nodeId: string, thumbna
     return false;
   }
 }
+
+export async function fetchAdminSystemSettings(token?: string, adminKey?: string) {
+  const headers: HeadersInit = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (adminKey) headers['X-Admin-Key'] = adminKey;
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/system`, { headers });
+  if (!response.ok) throw new Error('Failed to fetch system settings');
+
+  const data = await response.json();
+  const parsed = adminSystemSettingsSchema.safeParse(data);
+  if (!parsed.success) throw new Error('System settings response failed validation');
+  return parsed.data;
+}
+
+export async function toggleAdminUnlimitedMode(token?: string, adminKey?: string, mode?: 'unlimited' | 'free_capped') {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (adminKey) headers['X-Admin-Key'] = adminKey;
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/system/unlock-unlimited`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(mode ? { mode } : {}),
+  });
+  if (!response.ok) throw new Error('Failed to update storage tier mode');
+  return await response.json();
+}
+
+export async function fetchAdminUsers(token?: string, adminKey?: string) {
+  const headers: HeadersInit = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (adminKey) headers['X-Admin-Key'] = adminKey;
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/users`, { headers });
+  if (!response.ok) throw new Error('Failed to fetch users');
+
+  const data = await response.json();
+  const parsed = adminUsersResponseSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Admin users response failed validation');
+  return parsed.data.users;
+}
+
+export async function updateAdminUserQuota(
+  userId: string,
+  quotaBytes: number,
+  token?: string,
+  adminKey?: string
+) {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (adminKey) headers['X-Admin-Key'] = adminKey;
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/quota`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ quota_bytes: quotaBytes }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error((data as { error?: string }).error || 'Failed to update user quota');
+  }
+  return data;
+}
+

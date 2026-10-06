@@ -16,12 +16,12 @@ export const PlanTab = (props: PlanTabProps) => {
   const { user } = props;
 
   const usedBytes = user?.storage_used_bytes || 0;
-  const quotaBytes = user?.storage_quota_bytes || 1099511627776;
+  const quotaBytes = user?.storage_quota_bytes || 107374182400;
   const percentUsed = quotaBytes > 0 ? Math.min(100, Math.round((usedBytes / quotaBytes) * 100)) : 0;
 
   return (
     <section className="flex flex-col gap-8 max-w-4xl w-full">
-      <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-6">
+      <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 flex items-center justify-center font-bold shadow-md">
@@ -40,7 +40,7 @@ export const PlanTab = (props: PlanTabProps) => {
               </div>
 
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                <span>1 TB High-Speed Zero-Knowledge Mac Storage</span>
+                <span>{formatBytes(quotaBytes)} High-Speed Zero-Knowledge Mac Storage</span>
               </p>
             </div>
           </div>
@@ -50,7 +50,7 @@ export const PlanTab = (props: PlanTabProps) => {
 
             <span className="text-neutral-400">/</span>
 
-            <span className="text-neutral-600 dark:text-neutral-400">{formatBytes(quotaBytes)}</span>
+            <span className="text-neutral-600 dark:text-neutral-400">{formatBytes(quotaBytes)} used</span>
           </div>
         </div>
 
@@ -88,7 +88,7 @@ export const PlanTab = (props: PlanTabProps) => {
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div className="flex flex-col gap-3">
               <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
                 Free Starter
@@ -125,7 +125,7 @@ export const PlanTab = (props: PlanTabProps) => {
             </button>
           </div>
 
-          <div className="bg-white dark:bg-[#1f1f23] border-2 border-neutral-900 dark:border-white p-6 rounded-2xl shadow-lg flex flex-col justify-between relative">
+          <div className="bg-white dark:bg-[#1c1c1f] border-2 border-neutral-900 dark:border-white p-6 rounded-2xl shadow-lg flex flex-col justify-between relative">
             <div className="absolute -top-3 right-6 bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-sm">
               CURRENT
             </div>
@@ -145,13 +145,13 @@ export const PlanTab = (props: PlanTabProps) => {
               </div>
 
               <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                <span>1 TB native cloud drive with 0 bytes on your SSD and 0.8s 4K video seeking.</span>
+                <span>{formatBytes(quotaBytes)} native cloud drive with 0 bytes on your SSD and 0.8s 4K video seeking.</span>
               </p>
 
               <div className="flex flex-col gap-2.5 mt-2 text-xs text-neutral-700 dark:text-neutral-200">
                 <div className="flex items-center gap-2">
                   <CheckIcon size={14} className="text-emerald-500 shrink-0" />
-                  <span>1 TB High-Speed Storage</span>
+                  <span>{formatBytes(quotaBytes)} High-Speed Storage</span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -166,42 +166,52 @@ export const PlanTab = (props: PlanTabProps) => {
               </div>
             </div>
 
-            <div className="mt-6 w-full py-2.5 rounded-full text-xs font-semibold bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-center shadow-sm">
-              <span>Current Plan</span>
-            </div>
+            <button
+              disabled
+              className="mt-6 w-full py-2.5 rounded-full text-xs font-semibold bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 opacity-90 cursor-default"
+            >
+              <span>Current Tier Active</span>
+            </button>
           </div>
 
-          <div className="bg-white dark:bg-[#1f1f23] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#1c1c1f] border border-black/5 dark:border-white/10 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
             <div className="flex flex-col gap-3">
               <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
-                Studio & Team
+                Team Enterprise
               </span>
 
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">$45</span>
+                <span className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">$49</span>
 
                 <span className="text-xs text-neutral-400 dark:text-neutral-500">/ month</span>
               </div>
 
               <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                <span>10 TB for video editors, VFX production houses, and high-throughput studios.</span>
+                <span>10 TB shared organization vault with custom KMS key derivation and audit trails.</span>
               </p>
 
               <div className="flex flex-col gap-2.5 mt-2 text-xs text-neutral-600 dark:text-neutral-300">
                 <div className="flex items-center gap-2">
                   <CheckIcon size={14} className="text-neutral-900 dark:text-white shrink-0" />
-                  <span>10 TB Dedicated Capacity</span>
+                  <span>10 TB Organization Pool</span>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <CheckIcon size={14} className="text-neutral-900 dark:text-white shrink-0" />
-                  <span>Team Workspaces & RBAC</span>
+                  <span>Dedicated Audit Logs</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <CheckIcon size={14} className="text-neutral-900 dark:text-white shrink-0" />
+                  <span>Hardware Key (YubiKey) MFA</span>
                 </div>
               </div>
             </div>
 
-            <button className="mt-6 w-full py-2.5 rounded-full text-xs font-medium border border-black/10 dark:border-white/15 hover:bg-neutral-50 dark:hover:bg-white/5 text-neutral-900 dark:text-white transition-colors">
-              <span>Upgrade to Studio</span>
+            <button
+              className="mt-6 w-full py-2.5 rounded-full text-xs font-semibold border border-black/10 dark:border-white/10 text-neutral-900 dark:text-white hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <span>Contact Sales</span>
             </button>
           </div>
         </div>

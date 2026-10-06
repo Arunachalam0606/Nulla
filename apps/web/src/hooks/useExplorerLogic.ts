@@ -1,9 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
-import {
-  encryptMetadata,
-  decryptMetadata,
-} from '@nulla/crypto';
 
 import type { RawNode, DecryptedNode } from '@/schemas/node';
 
@@ -12,10 +8,18 @@ import { useExplorerStore } from '@/stores/explorerStore';
 import type { BreadcrumbItem } from '@/stores/explorerStore';
 
 import {
+  encryptMetadata,
+  decryptMetadata,
+  encryptChunk,
+} from '@nulla/crypto';
+import {
   fetchDirectoryNodes,
   createFolderNode,
   softDeleteNode,
   uploadDirectFile,
+  initUploadSession,
+  uploadChunkBinary,
+  completeUploadSession,
 } from '@/lib/api';
 import { generateThumbnail } from '@/lib/thumbnail';
 import { scanFileList } from '@/lib/directoryTraversal';
@@ -37,6 +41,7 @@ export function useExplorerLogic() {
   const uploadQueue = useExplorerStore((state) => state.uploadQueue);
   const previewNode = useExplorerStore((state) => state.previewNode);
   const isE2eeVaultEnabled = useExplorerStore((state) => state.isE2eeVaultEnabled);
+  const loadDuration = useExplorerStore((state) => state.loadDuration);
 
   const setCurrentParentId = useExplorerStore((state) => state.setCurrentParentId);
   const setBreadcrumbs = useExplorerStore((state) => state.setBreadcrumbs);
@@ -49,6 +54,7 @@ export function useExplorerLogic() {
   const setSearchQuery = useExplorerStore((state) => state.setSearchQuery);
   const setUploadDrawerOpen = useExplorerStore((state) => state.setUploadDrawerOpen);
   const setIsE2eeVaultEnabled = useExplorerStore((state) => state.setIsE2eeVaultEnabled);
+  const setLoadDuration = useExplorerStore((state) => state.setLoadDuration);
   const addUploadQueueItem = useExplorerStore((state) => state.addUploadQueueItem);
   const updateUploadQueueItem = useExplorerStore((state) => state.updateUploadQueueItem);
   const setPreviewNode = useExplorerStore((state) => state.setPreviewNode);
@@ -128,18 +134,21 @@ export function useExplorerLogic() {
 
     setIsLoading(true);
     setError('');
+    const startTime = performance.now();
 
     try {
       const rawNodes = await fetchDirectoryNodes(token, currentParentId);
       const decrypted = await decryptRawNodes(rawNodes);
       setNodes(decrypted);
+      const durationSec = ((performance.now() - startTime) / 1000).toFixed(2);
+      setLoadDuration(durationSec);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load directory';
       setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [token, masterKey, currentParentId, decryptRawNodes, setNodes]);
+  }, [token, masterKey, currentParentId, decryptRawNodes, setNodes, setLoadDuration]);
 
   const handleCreateFolder = async (folderName: string) => {
     if (!token || !masterKey || !folderName.trim()) return;
@@ -272,46 +281,113 @@ export function useExplorerLogic() {
           targetParentId = parentForSegment;
         }
 
-        // Generate instant 256x256 WebP thumbnail for media
-        const thumbBlob = await generateThumbnail(file);
+        if (isE2eeVaultEnabled) {
+          // Zero-Knowledge E2EE: 1 MB chunks encrypted in RAM with AES-256-GCM.
+          // Strict zero-knowledge: NO thumbnails generated or uploaded. R2 holds only opaque ciphertext blocks.
+          const CHUNK_SIZE = 1024 * 1024; // 1 MB
+          const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
 
-        // Direct Cloudflare R2 native stream upload (Helumi architecture)
-        updateUploadQueueItem(uploadId, { status: 'uploading', progressPercentage: 10 });
+          updateUploadQueueItem(uploadId, {
+            status: 'uploading',
+            totalChunks,
+            currentChunk: 1,
+            progressPercentage: 5,
+          });
 
-        const rawResult = await uploadDirectFile(
-          token,
-          file,
-          targetParentId,
-          thumbBlob,
-          (progress) => {
+          const encName = await encryptMetadata(file.name, masterKey);
+          const encMime = await encryptMetadata(file.type || 'application/octet-stream', masterKey);
+
+          const session = await initUploadSession(token, {
+            parent_id: targetParentId,
+            name_encrypted: encName.ciphertext,
+            name_iv: encName.iv,
+            mime_type_encrypted: encMime.ciphertext,
+            size_bytes: file.size,
+            total_chunks: totalChunks,
+          });
+
+          for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+            const startByte = chunkIdx * CHUNK_SIZE;
+            const endByte = Math.min(file.size, startByte + CHUNK_SIZE);
+            const sliceBlob = file.slice(startByte, endByte);
+            const buffer = await sliceBlob.arrayBuffer();
+            const chunkPlaintext = new Uint8Array(buffer);
+
+            const encrypted = await encryptChunk(masterKey, masterKeyRaw, chunkIdx, chunkPlaintext);
+            await uploadChunkBinary(token, session.session_id, chunkIdx, encrypted.data);
+
+            const pct = Math.round(((chunkIdx + 1) / totalChunks) * 95);
             updateUploadQueueItem(uploadId, {
-              status: 'uploading',
-              progressPercentage: progress,
+              currentChunk: chunkIdx + 1,
+              progressPercentage: pct,
             });
           }
-        );
 
-        updateUserUsage(file.size);
+          const rawResult = await completeUploadSession(token, session.session_id);
 
-        updateUploadQueueItem(uploadId, {
-          status: 'completed',
-          progressPercentage: 100,
-        });
+          updateUserUsage(file.size);
 
-        if (targetParentId === currentParentId) {
-          const decryptedDirectNode: DecryptedNode = {
-            id: rawResult.id,
-            parentId: rawResult.parent_id,
-            name: rawResult.name || file.name,
-            type: 'file',
-            sizeBytes: file.size,
-            mimeType: file.type || 'application/octet-stream',
-            chunkCount: 1,
-            status: 'ready',
-            createdAt: rawResult.created_at,
-            updatedAt: rawResult.updated_at,
-          };
-          addNode(decryptedDirectNode);
+          updateUploadQueueItem(uploadId, {
+            status: 'completed',
+            progressPercentage: 100,
+          });
+
+          if (targetParentId === currentParentId) {
+            const decryptedNode: DecryptedNode = {
+              id: rawResult.id,
+              parentId: rawResult.parent_id,
+              name: file.name,
+              type: 'file',
+              sizeBytes: file.size,
+              mimeType: file.type || 'application/octet-stream',
+              chunkCount: totalChunks,
+              status: 'ready',
+              createdAt: rawResult.created_at,
+              updatedAt: rawResult.updated_at,
+            };
+            addNode(decryptedNode);
+          }
+        } else {
+          // Direct Cloudflare R2 native stream upload with instant 256x256 WebP thumbnail (Helumi architecture)
+          const thumbBlob = await generateThumbnail(file);
+
+          updateUploadQueueItem(uploadId, { status: 'uploading', progressPercentage: 10 });
+
+          const rawResult = await uploadDirectFile(
+            token,
+            file,
+            targetParentId,
+            thumbBlob,
+            (progress) => {
+              updateUploadQueueItem(uploadId, {
+                status: 'uploading',
+                progressPercentage: progress,
+              });
+            }
+          );
+
+          updateUserUsage(file.size);
+
+          updateUploadQueueItem(uploadId, {
+            status: 'completed',
+            progressPercentage: 100,
+          });
+
+          if (targetParentId === currentParentId) {
+            const decryptedDirectNode: DecryptedNode = {
+              id: rawResult.id,
+              parentId: rawResult.parent_id,
+              name: rawResult.name || file.name,
+              type: 'file',
+              sizeBytes: file.size,
+              mimeType: file.type || 'application/octet-stream',
+              chunkCount: 1,
+              status: 'ready',
+              createdAt: rawResult.created_at,
+              updatedAt: rawResult.updated_at,
+            };
+            addNode(decryptedDirectNode);
+          }
         }
       } catch (uploadErr: unknown) {
         const errorMsg = uploadErr instanceof Error ? uploadErr.message : 'Upload failed';
@@ -340,6 +416,7 @@ export function useExplorerLogic() {
     uploadQueue,
     previewNode,
     isE2eeVaultEnabled,
+    loadDuration,
     isLoading,
     error,
     setSelectedNodeId,
@@ -347,6 +424,7 @@ export function useExplorerLogic() {
     setSearchQuery,
     setUploadDrawerOpen,
     setIsE2eeVaultEnabled,
+    setLoadDuration,
     setPreviewNode,
     handleCreateFolder,
     handleNavigateToFolder,

@@ -34,3 +34,34 @@ export const adminTelemetrySchema = z.object({
 });
 
 export type AdminTelemetry = z.infer<typeof adminTelemetrySchema>;
+
+export const adminSystemSettingsSchema = z.object({
+  storage_tier_mode: z.string(),
+  global_cap_bytes: z.number(),
+  total_used_bytes: z.number(),
+  total_allocated_bytes: z.number(),
+  is_unlimited: z.boolean(),
+  percentage_used: z.number(),
+  percentage_allocated: z.number(),
+});
+
+export type AdminSystemSettings = z.infer<typeof adminSystemSettingsSchema>;
+
+export const adminUserItemSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  role: z.string(),
+  storage_used_bytes: z.number(),
+  storage_quota_bytes: z.number(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type AdminUserItem = z.infer<typeof adminUserItemSchema>;
+
+export const adminUsersResponseSchema = z.object({
+  users: z.array(adminUserItemSchema),
+});
+
+export type AdminUsersResponse = z.infer<typeof adminUsersResponseSchema>;
+

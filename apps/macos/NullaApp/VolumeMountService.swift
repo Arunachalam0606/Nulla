@@ -21,6 +21,7 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
     private var isStartingServer: Bool = false
     private var monitorTimer: Timer?
     private var lastNodesFetchTime: Date = .distantPast
+    private let webdavQueue = DispatchQueue(label: "app.nulla.webdav.io", qos: .userInteractive, attributes: .concurrent)
     
     private init() {
         startServer()
@@ -113,7 +114,7 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
                 self?.handleConnection(connection)
             }
             
-            nwListener.start(queue: DispatchQueue.global(qos: .userInitiated))
+            nwListener.start(queue: webdavQueue)
         } catch {
             self.isStartingServer = false
         }
@@ -122,19 +123,26 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
     // MARK: - Connection Handler
     
     private func handleConnection(_ connection: NWConnection) {
+        let connectionWatchdog = DispatchWorkItem { [weak connection] in
+            connection?.cancel()
+        }
+        webdavQueue.asyncAfter(deadline: .now() + 3.0, execute: connectionWatchdog)
+
         connection.stateUpdateHandler = { state in
             switch state {
             case .failed, .cancelled:
-                break
+                connectionWatchdog.cancel()
             case .waiting(_):
+                connectionWatchdog.cancel()
                 connection.cancel()
             default:
                 break
             }
         }
-        connection.start(queue: DispatchQueue.global(qos: .userInitiated))
+        connection.start(queue: webdavQueue)
         
         connection.receive(minimumIncompleteLength: 4, maximumLength: 65536) { [weak self] data, _, _, error in
+            connectionWatchdog.cancel()
             guard let self = self else {
                 connection.cancel()
                 return
@@ -244,7 +252,25 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
 
     // MARK: - WebDAV Request Processing
     
+    private func isProbePath(_ path: String) -> Bool {
+        let lower = path.lowercased()
+        return lower.contains("._") ||
+               lower.contains(".ds_store") ||
+               lower.contains(".trashes") ||
+               lower.contains(".spotlight") ||
+               lower.contains(".fseventsd") ||
+               lower.contains("desktop db") ||
+               lower.contains("desktop df") ||
+               lower.contains(".temporaryitems")
+    }
+
     private func processRequest(method: String, path: String, requestString: String, bodyData: Data, connection: NWConnection) {
+        if isProbePath(path) {
+            let notFoundResp = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            self.sendResponse(connection: connection, text: notFoundResp)
+            return
+        }
+
         switch method {
         case "OPTIONS":
             let optionsResp = [
@@ -529,10 +555,10 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
             return
         }
         
-        // Root Collection: Calculate 1 TB Quota Metadata (RFC 4331)
-        let currentUsageBytes = nodes.reduce(0) { $0 + $1.sizeBytes }
-        let oneTerabyte: Int64 = 1_099_511_627_776 // 1 TB in bytes
-        let availableBytes = max(0, oneTerabyte - currentUsageBytes)
+        // Root Collection: Calculate Live User Quota Metadata (RFC 4331)
+        let userQuota = VaultService.shared.userStorageQuotaBytes > 0 ? VaultService.shared.userStorageQuotaBytes : 5_368_709_120
+        let currentUsageBytes = VaultService.shared.userStorageUsedBytes > 0 ? VaultService.shared.userStorageUsedBytes : nodes.reduce(0) { $0 + $1.sizeBytes }
+        let availableBytes = max(0, userQuota - currentUsageBytes)
         
         let normalizedPath = path.hasSuffix("/") ? String(path.dropLast()) : path
         let baseHref = normalizedPath.hasPrefix("/Nulla") ? "\(normalizedPath)/" : "/Nulla/"
@@ -819,35 +845,8 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
             }
         }
         
-        let task = URLSession.shared.dataTask(with: upstreamRequest) { data, response, error in
-            guard let http = response as? HTTPURLResponse, let data = data, error == nil else {
-                let err = "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                self.sendResponse(connection: connection, text: err)
-                return
-            }
-            
-            var headerLines = ["HTTP/1.1 \(http.statusCode) \(http.statusCode == 206 ? "Partial Content" : "OK")"]
-            for (k, v) in http.allHeaderFields {
-                let keyStr = "\(k)"
-                let valStr = "\(v)"
-                if keyStr.lowercased() == "transfer-encoding" || keyStr.lowercased() == "connection" {
-                    continue
-                }
-                headerLines.append("\(keyStr): \(valStr)")
-            }
-            headerLines.append("Connection: close")
-            headerLines.append("\r\n")
-            
-            var fullPayload = headerLines.joined(separator: "\r\n").data(using: .utf8)!
-            if method != "HEAD" {
-                fullPayload.append(data)
-            }
-            
-            connection.send(content: fullPayload, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ _ in
-                connection.cancel()
-            }))
-        }
-        task.resume()
+        let streamer = WebDAVStreamer(connection: connection, method: method)
+        streamer.start(request: upstreamRequest)
     }
     
     private func sendResponse(connection: NWConnection, text: String) {
@@ -859,6 +858,159 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
             connection.cancel()
         }))
     }
+}
+
+// MARK: - Delegate-Driven Non-Blocking WebDAV Socket Streamer
+
+private final class WebDAVStreamer: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let connection: NWConnection
+    private let method: String
+    private var session: URLSession?
+    private var selfRetain: WebDAVStreamer?
+    private var firstByteWatchdog: DispatchWorkItem?
+
+    init(connection: NWConnection, method: String) {
+        self.connection = connection
+        self.method = method
+        super.init()
+        self.selfRetain = self
+        let config = URLSessionConfiguration.default
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        self.session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+    }
+
+    func start(request: URLRequest) {
+        let watchdog = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let timeoutResp = "HTTP/1.1 504 Gateway Timeout\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            if let data = timeoutResp.data(using: .utf8) {
+                self.connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ [weak self] _ in
+                    self?.connection.cancel()
+                    self?.cleanup()
+                }))
+            } else {
+                self.connection.cancel()
+                self.cleanup()
+            }
+        }
+        self.firstByteWatchdog = watchdog
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2.5, execute: watchdog)
+
+        let task = session?.dataTask(with: request)
+        task?.resume()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        firstByteWatchdog?.cancel()
+        firstByteWatchdog = nil
+
+        guard let http = response as? HTTPURLResponse else {
+            completionHandler(.cancel)
+            connection.cancel()
+            cleanup()
+            return
+        }
+
+        var headerLines = ["HTTP/1.1 \(http.statusCode) \(http.statusCode == 206 ? "Partial Content" : "OK")"]
+        for (k, v) in http.allHeaderFields {
+            let keyStr = "\(k)"
+            let lower = keyStr.lowercased()
+            if lower == "transfer-encoding" || lower == "connection" {
+                continue
+            }
+            headerLines.append("\(keyStr): \(v)")
+        }
+        headerLines.append("Connection: close")
+        headerLines.append("\r\n")
+
+        let headerData = headerLines.joined(separator: "\r\n").data(using: .utf8)!
+
+        if method == "HEAD" {
+            connection.send(content: headerData, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ [weak self] _ in
+                self?.connection.cancel()
+                self?.cleanup()
+            }))
+            completionHandler(.cancel)
+            return
+        }
+
+        connection.send(content: headerData, isComplete: false, completion: .idempotent)
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        firstByteWatchdog?.cancel()
+        firstByteWatchdog = nil
+        // Stream chunks directly from R2 to the socket without loading multi-GB files into RAM
+        connection.send(content: data, isComplete: false, completion: .idempotent)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        firstByteWatchdog?.cancel()
+        firstByteWatchdog = nil
+        connection.send(content: Data(), contentContext: .finalMessage, isComplete: true, completion: .contentProcessed({ [weak self] _ in
+            self?.connection.cancel()
+            self?.cleanup()
+        }))
+    }
+
+    private func cleanup() {
+        firstByteWatchdog?.cancel()
+        firstByteWatchdog = nil
+        session?.invalidateAndCancel()
+        session = nil
+        selfRetain = nil
+    }
+}
+
+extension VolumeMountService {
+
+    // MARK: - Asynchronous Subprocess Execution Helper (Zero VFS Main Runloop Hang)
+
+    private final class ProcessContinuationState: @unchecked Sendable {
+        private var hasResumed = false
+        private let lock = NSLock()
+
+        func resumeOnce(continuation: CheckedContinuation<Int32, Never>, status: Int32, cancelProcess: Process? = nil) {
+            lock.lock()
+            defer { lock.unlock() }
+            if !hasResumed {
+                hasResumed = true
+                if let proc = cancelProcess, proc.isRunning {
+                    proc.terminate()
+                }
+                continuation.resume(returning: status)
+            }
+        }
+    }
+
+    @discardableResult
+    private func runProcessAsync(executable: String, arguments: [String], timeoutSeconds: Double = 3.0) async -> Int32 {
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = arguments
+            
+            let state = ProcessContinuationState()
+            
+            let watchdog = DispatchWorkItem { [weak process] in
+                state.resumeOnce(continuation: continuation, status: -1, cancelProcess: process)
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeoutSeconds, execute: watchdog)
+            
+            process.terminationHandler = { proc in
+                watchdog.cancel()
+                state.resumeOnce(continuation: continuation, status: proc.terminationStatus)
+            }
+            
+            do {
+                try process.run()
+            } catch {
+                watchdog.cancel()
+                state.resumeOnce(continuation: continuation, status: -1)
+            }
+        }
+    }
     
     // MARK: - Mount & Eject Actions
     
@@ -866,45 +1018,38 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
         startServer()
         
         Task {
-            // Unmount any lingering /Volumes/Nulla or 127.0.0.1 shares
-            let unmountNulla = Process()
-            unmountNulla.executableURL = URL(fileURLWithPath: "/sbin/umount")
-            unmountNulla.arguments = ["-f", "/Volumes/Nulla"]
-            try? unmountNulla.run()
-            unmountNulla.waitUntilExit()
-            
-            let unmountIP = Process()
-            unmountIP.executableURL = URL(fileURLWithPath: "/sbin/umount")
-            unmountIP.arguments = ["-f", "/Volumes/127.0.0.1"]
-            try? unmountIP.run()
-            unmountIP.waitUntilExit()
+            // Force unmount any lingering /Volumes/Nulla or /Volumes/127.0.0.1 shares asynchronously
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/Nulla"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/Nulla"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             
             let mountPoint = "/Volumes/Nulla"
             try? FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
             
-            // Format URL with volume name and pass "-v Nulla" so macOS NetFS names the volume "Nulla"
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/sbin/mount_webdav")
-            process.arguments = ["-v", "Nulla", "http://Nulla@127.0.0.1:\(self.port)/Nulla", mountPoint]
-            
-            do {
-                try process.run()
-                process.waitUntilExit()
-            } catch {
-                print("[VolumeMountService] mount_webdav error: \(error)")
-            }
+            // Mount as guest with silent flag (-s) and volume name (-v Nulla) via localhost
+            await runProcessAsync(
+                executable: "/sbin/mount_webdav",
+                arguments: ["-s", "-v", "Nulla", "http://guest:@localhost:\(self.port)/Nulla", mountPoint],
+                timeoutSeconds: 4.0
+            )
             
             // Fallback to NetFS via osascript if not yet mounted
             let mountedURLs = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? []
             if !mountedURLs.contains(where: { $0.path == mountPoint }) {
-                let osa = Process()
-                osa.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-                osa.arguments = ["-e", "mount volume \"http://127.0.0.1:\(self.port)/Nulla\""]
-                try? osa.run()
-                osa.waitUntilExit()
+                await runProcessAsync(
+                    executable: "/usr/bin/osascript",
+                    arguments: ["-e", "mount volume \"http://guest:@localhost:\(self.port)/Nulla\""],
+                    timeoutSeconds: 3.0
+                )
             }
             
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            try? await Task.sleep(nanoseconds: 800_000_000)
+
+            // If macOS NetFS defaulted to /Volumes/127.0.0.1, rename via diskutil
+            if FileManager.default.fileExists(atPath: "/Volumes/127.0.0.1") {
+                await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["rename", "/Volumes/127.0.0.1", "Nulla"])
+            }
             
             // Apply Branded Volume Icon (.VolumeIcon.icns) and SetFile attributes
             self.applyVolumeBranding(at: mountPoint)
@@ -917,25 +1062,10 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
     
     public func ejectVolume() {
         Task {
-            let umountProcess = Process()
-            umountProcess.executableURL = URL(fileURLWithPath: "/sbin/umount")
-            umountProcess.arguments = ["-f", "/Volumes/Nulla"]
-            try? umountProcess.run()
-            umountProcess.waitUntilExit()
-            
-            if FileManager.default.fileExists(atPath: "/Volumes/Nulla") {
-                let diskutilProcess = Process()
-                diskutilProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
-                diskutilProcess.arguments = ["unmount", "force", "/Volumes/Nulla"]
-                try? diskutilProcess.run()
-                diskutilProcess.waitUntilExit()
-            }
-            
-            let umountIP = Process()
-            umountIP.executableURL = URL(fileURLWithPath: "/sbin/umount")
-            umountIP.arguments = ["-f", "/Volumes/127.0.0.1"]
-            try? umountIP.run()
-            umountIP.waitUntilExit()
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/Nulla"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/Nulla"])
+            await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
+            await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             
             try? await Task.sleep(nanoseconds: 500_000_000)
             await MainActor.run {

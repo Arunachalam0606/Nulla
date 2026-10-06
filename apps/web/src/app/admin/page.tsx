@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useAdminLogic } from '@/hooks/useAdminLogic';
 
 import { TelemetryCards } from '@/components/admin/TelemetryCards';
-import { StorageMeter } from '@/components/admin/StorageMeter';
+import { GlobalQuotaCard } from '@/components/admin/GlobalQuotaCard';
+import { UnlockConfirmationModal } from '@/components/admin/UnlockConfirmationModal';
+import { UserQuotaTable } from '@/components/admin/UserQuotaTable';
 
 import {
   CpuIcon,
@@ -15,17 +17,41 @@ import {
   CloudIcon,
   KeyIcon,
   CircleNotchIcon,
+  CheckCircleIcon,
 } from '@phosphor-icons/react';
 
 export default function AdminPage() {
   const {
     telemetry,
+    systemSettings,
+    users,
     isLoading,
     error,
+    actionMessage,
     adminKey,
+    isConfirmModalOpen,
+    customUserId,
+    customQuotaGb,
     setAdminKey,
-    refreshMetrics,
+    setCustomUserId,
+    setCustomQuotaGb,
+    refreshData,
+    handleOpenConfirmModal,
+    handleCloseConfirmModal,
+    handleToggleUnlimited,
+    handleSetUserQuota,
+    handleApplyCustomQuota,
   } = useAdminLogic();
+
+  const handleSelectCustom = (userId: string) => {
+    setCustomUserId(userId);
+    setCustomQuotaGb('');
+  };
+
+  const handleCancelCustom = () => {
+    setCustomUserId(null);
+    setCustomQuotaGb('');
+  };
 
   return (
     <section className="min-h-screen bg-[#040404] text-[#ececec] flex flex-col p-8">
@@ -39,7 +65,7 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight text-white">
-                  <span>Nulla Telemetry & Cloud Health</span>
+                  <span>Nulla Telemetry & Storage Control Plane</span>
                 </h1>
 
                 <span className="text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded">
@@ -57,7 +83,7 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={refreshMetrics}
+              onClick={refreshData}
               disabled={isLoading}
               className="flex items-center gap-1.5 bg-[#0f0f0f] hover:bg-[#181818] border border-[#222222] text-xs px-3 py-1.5 rounded-lg text-white transition-colors"
             >
@@ -81,25 +107,43 @@ export default function AdminPage() {
           </div>
         )}
 
+        {actionMessage && (
+          <div className="p-4 bg-emerald-950/30 border border-emerald-900/50 rounded-xl text-xs text-emerald-400 flex items-center gap-2">
+            <CheckCircleIcon size={16} />
+
+            <span>{actionMessage}</span>
+          </div>
+        )}
+
         {isLoading && !telemetry ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
             <CircleNotchIcon size={32} className="animate-spin text-white" />
 
             <span className="text-xs font-mono text-[#71717a]">
-              Querying live database telemetry...
+              Querying live database telemetry and storage tiers...
             </span>
           </div>
         ) : (
           <>
-            <TelemetryCards telemetry={telemetry} />
+            <GlobalQuotaCard
+              systemSettings={systemSettings}
+              isLoading={isLoading}
+              onOpenUnlockModal={handleOpenConfirmModal}
+            />
 
-            {telemetry && (
-              <StorageMeter
-                totalUsedBytes={telemetry.storage.total_used_bytes}
-                totalQuotaBytes={telemetry.storage.total_quota_bytes}
-                percentageUsed={telemetry.storage.percentage_used}
-              />
-            )}
+            <UserQuotaTable
+              users={users}
+              isLoading={isLoading}
+              customUserId={customUserId}
+              customQuotaGb={customQuotaGb}
+              onSetQuota={handleSetUserQuota}
+              onSelectCustom={handleSelectCustom}
+              onChangeCustomGb={setCustomQuotaGb}
+              onApplyCustom={handleApplyCustomQuota}
+              onCancelCustom={handleCancelCustom}
+            />
+
+            <TelemetryCards telemetry={telemetry} />
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-[#0a0a0a] border border-[#1a1a1a] p-5 rounded-xl flex items-center gap-4">
@@ -174,7 +218,7 @@ export default function AdminPage() {
             />
 
             <button
-              onClick={refreshMetrics}
+              onClick={refreshData}
               className="bg-[#181818] hover:bg-[#222222] text-white text-xs px-4 py-1.5 rounded-lg border border-[#2e2e2e] transition-colors"
             >
               <span>Authenticate</span>
@@ -182,6 +226,14 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      <UnlockConfirmationModal
+        isOpen={isConfirmModalOpen}
+        isCurrentlyUnlimited={Boolean(systemSettings?.is_unlimited)}
+        isLoading={isLoading}
+        onConfirm={handleToggleUnlimited}
+        onCancel={handleCloseConfirmModal}
+      />
     </section>
   );
 }
