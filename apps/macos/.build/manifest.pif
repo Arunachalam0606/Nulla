@@ -5,11 +5,11 @@
       "name" : "NullaMacOS",
       "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos",
       "projects" : [
-        "b9795bd29c642c5136c504eedddb6c913014d753c8057de8b080de241770339c",
-        "3cdc725f5af38e9f33b68021e6eaec233c77aa170ea50b615bb0903570dab894"
+        "06b185a9c48388246547fbfef1978e1bbaf46f94c79024c9d30a2bba2f901766",
+        "e77d43a06710ecb20f3f8fa5271402b1b59d004c1c97371a871552f212904c12"
       ]
     },
-    "signature" : "0136428d3d223adf60359ed099a275771fd67466464c2eba653b5e7a592a8fad",
+    "signature" : "9b59137b194cc48e063a39ba63b651d50da15690772b914b340d0af6f03248b2",
     "type" : "workspace"
   },
   {
@@ -259,63 +259,15 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_0",
-                "name" : "MenuBarView.swift",
-                "path" : "MenuBarView.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_1",
-                "name" : "NullaApp.swift",
-                "path" : "NullaApp.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_2",
-                "name" : "OnboardingView.swift",
-                "path" : "OnboardingView.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_3",
-                "name" : "QuickSearchView.swift",
-                "path" : "QuickSearchView.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_4",
-                "name" : "SettingsView.swift",
-                "path" : "SettingsView.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_5",
-                "name" : "VaultService.swift",
-                "path" : "VaultService.swift",
-                "sourceTree" : "<group>",
-                "type" : "file"
-              },
-              {
-                "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_4::REF_6",
-                "name" : "VolumeMountService.swift",
-                "path" : "VolumeMountService.swift",
+                "name" : "NullaFSExtension.swift",
+                "path" : "NullaFSExtension.swift",
                 "sourceTree" : "<group>",
                 "type" : "file"
               }
             ],
             "guid" : "PACKAGE:macos::MAINGROUP::REF_4",
-            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
-            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
+            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaFS",
+            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaFS",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -324,23 +276,63 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_0",
-                "name" : "CryptoKitEngine.swift",
-                "path" : "CryptoKitEngine.swift",
+                "name" : "MenuBarView.swift",
+                "path" : "MenuBarView.swift",
                 "sourceTree" : "<group>",
                 "type" : "file"
               },
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_1",
-                "name" : "KeychainHelper.swift",
-                "path" : "KeychainHelper.swift",
+                "name" : "NullaApp.swift",
+                "path" : "NullaApp.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_2",
+                "name" : "OnboardingView.swift",
+                "path" : "OnboardingView.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_3",
+                "name" : "QuickSearchView.swift",
+                "path" : "QuickSearchView.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_4",
+                "name" : "SettingsView.swift",
+                "path" : "SettingsView.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_5",
+                "name" : "VaultService.swift",
+                "path" : "VaultService.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_5::REF_6",
+                "name" : "VolumeMountService.swift",
+                "path" : "VolumeMountService.swift",
                 "sourceTree" : "<group>",
                 "type" : "file"
               }
             ],
             "guid" : "PACKAGE:macos::MAINGROUP::REF_5",
-            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/Shared",
-            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/Shared",
+            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
+            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
             "sourceTree" : "<absolute>",
             "type" : "group"
           },
@@ -374,6 +366,31 @@
               {
                 "fileType" : "sourcecode.swift",
                 "guid" : "PACKAGE:macos::MAINGROUP::REF_7::REF_0",
+                "name" : "CryptoKitEngine.swift",
+                "path" : "CryptoKitEngine.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              },
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_7::REF_1",
+                "name" : "KeychainHelper.swift",
+                "path" : "KeychainHelper.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:macos::MAINGROUP::REF_7",
+            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/Shared",
+            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/Shared",
+            "sourceTree" : "<absolute>",
+            "type" : "group"
+          },
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_0",
                 "name" : "FileProviderEnumerator.swift",
                 "path" : "FileProviderEnumerator.swift",
                 "sourceTree" : "<group>",
@@ -381,7 +398,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_7::REF_1",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_1",
                 "name" : "FileProviderExtension.swift",
                 "path" : "FileProviderExtension.swift",
                 "sourceTree" : "<group>",
@@ -389,7 +406,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_7::REF_2",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_2",
                 "name" : "FileProviderItem.swift",
                 "path" : "FileProviderItem.swift",
                 "sourceTree" : "<group>",
@@ -397,14 +414,14 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_7::REF_3",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
                 "name" : "main.swift",
                 "path" : "main.swift",
                 "sourceTree" : "<group>",
                 "type" : "file"
               }
             ],
-            "guid" : "PACKAGE:macos::MAINGROUP::REF_7",
+            "guid" : "PACKAGE:macos::MAINGROUP::REF_8",
             "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaExtension",
             "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaExtension",
             "sourceTree" : "<absolute>",
@@ -414,7 +431,24 @@
             "children" : [
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_0",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_9::REF_0",
+                "name" : "NullaFSExtension.swift",
+                "path" : "NullaFSExtension.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:macos::MAINGROUP::REF_9",
+            "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaFS",
+            "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaFS",
+            "sourceTree" : "<absolute>",
+            "type" : "group"
+          },
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_0",
                 "name" : "MenuBarView.swift",
                 "path" : "MenuBarView.swift",
                 "sourceTree" : "<group>",
@@ -422,7 +456,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_1",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_1",
                 "name" : "NullaApp.swift",
                 "path" : "NullaApp.swift",
                 "sourceTree" : "<group>",
@@ -430,7 +464,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_2",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_2",
                 "name" : "OnboardingView.swift",
                 "path" : "OnboardingView.swift",
                 "sourceTree" : "<group>",
@@ -438,7 +472,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_3",
                 "name" : "QuickSearchView.swift",
                 "path" : "QuickSearchView.swift",
                 "sourceTree" : "<group>",
@@ -446,7 +480,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_4",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_4",
                 "name" : "SettingsView.swift",
                 "path" : "SettingsView.swift",
                 "sourceTree" : "<group>",
@@ -454,7 +488,7 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_5",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_5",
                 "name" : "VaultService.swift",
                 "path" : "VaultService.swift",
                 "sourceTree" : "<group>",
@@ -462,14 +496,14 @@
               },
               {
                 "fileType" : "sourcecode.swift",
-                "guid" : "PACKAGE:macos::MAINGROUP::REF_8::REF_6",
+                "guid" : "PACKAGE:macos::MAINGROUP::REF_10::REF_6",
                 "name" : "VolumeMountService.swift",
                 "path" : "VolumeMountService.swift",
                 "sourceTree" : "<group>",
                 "type" : "file"
               }
             ],
-            "guid" : "PACKAGE:macos::MAINGROUP::REF_8",
+            "guid" : "PACKAGE:macos::MAINGROUP::REF_10",
             "name" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
             "path" : "/Users/arunachalam/Documents/workspace/mac-storage-cloud/nulla/apps/macos/NullaApp",
             "sourceTree" : "<absolute>",
@@ -492,15 +526,17 @@
         "ea75d56651ca5cd81c70f5df0b84f2b53d1cc845b56c564f30ac820030fbcf48",
         "7a35b71ef70577c05d6ca6e24ab47e7d219ce7911669c20cb2587944dc3525b5",
         "2764774e6300715bfff2ad93890fa0886fc9e1e04ab94f7dc68618e368530269",
-        "82bba2df8d8bd57b4e76bedf58c6a0c0dd058bc25c1c1f9d3a3c7cdb42f97dfe",
-        "219ff8d3cb02553a776b80c7216460dc3ed448848315015b9dc68fc839c00eee",
-        "11630759a0edb0527cb09d290228a4153a46e7751d86f793b98c4944d04fd939",
-        "b228ccfb128c9b2fcf7f0492b1f166664b5d8f3e2f5f5e7957105bf738f41ded",
-        "4e66e5b70b9f5f8cb5772362e667ee5d95fea329fcb8e509ddd49560548239b2",
+        "ac210e9c014fcacd215cd326923596ef943aae2c1aade3e873c48a1610e1fb51",
+        "306ddd0ed9fe8f1a147d6a5752b0d54f00b4c0875515c67386e0b0040cee5518",
+        "d6d38ff193fe07c33f9f0f21567f201551509c810338f73f80be195d206126ae",
+        "50e882a23af6155074d890631f0a71a89fb7d7c0e5ea3cb39ae01471255927a0",
+        "02f0e57019af7fe004b6f833908e3ca49f7764dc681e6615439eb370e7959df7",
+        "7fdd96c93366983c29b8886c2901194a462b03a6fe6ceab7cffd4c7785f28ec4",
+        "ff121316e3f421077482a104d171b2a000a5f6149101323a3df5af4ad8221a9c",
         "8b5a7fa42fccea607894bb4b74859e9039864f6db12f780466d4131d93a32ca9"
       ]
     },
-    "signature" : "b9795bd29c642c5136c504eedddb6c913014d753c8057de8b080de241770339c",
+    "signature" : "06b185a9c48388246547fbfef1978e1bbaf46f94c79024c9d30a2bba2f901766",
     "type" : "project"
   },
   {
@@ -1143,6 +1179,162 @@
               "-Xfrontend",
               "-entry-point-function-name",
               "-Xfrontend",
+              "NullaFS_main"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "macos.NullaFS",
+            "PRODUCT_MODULE_NAME" : "NullaFS",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SWIFT_DISABLE_PARSE_AS_LIBRARY" : "NO",
+            "SWIFT_ENABLE_BARE_SLASH_REGEX" : "NO",
+            "SWIFT_INSTALL_MODULE" : "NO",
+            "SWIFT_LIBRARIES_ONLY" : "YES",
+            "SWIFT_PACKAGE_NAME" : "macos",
+            "SWIFT_VERSION" : "5",
+            "SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TAPI_EXTRACT_API_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TARGET_NAME" : "NullaFS",
+            "TARGET_TEMP_DIR_SUFFIX" : "-p",
+            "TVOS_DEPLOYMENT_TARGET" : "15.0",
+            "WATCHOS_DEPLOYMENT_TARGET" : "9.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDCONFIG_0",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION" : "YES",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "21.0",
+            "GENERATE_EMBED_IN_CODE_ACCESSORS" : "NO",
+            "GENERATE_RESOURCE_ACCESSORS" : "YES",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "MACOSX_DEPLOYMENT_TARGET" : "14.0",
+            "OTHER_SWIFT_FLAGS" : [
+              "$(inherited)",
+              "$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))"
+            ],
+            "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES" : [
+              "-Xfrontend",
+              "-entry-point-function-name",
+              "-Xfrontend",
+              "NullaFS_main"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "macos.NullaFS",
+            "PRODUCT_MODULE_NAME" : "NullaFS",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SWIFT_DISABLE_PARSE_AS_LIBRARY" : "NO",
+            "SWIFT_ENABLE_BARE_SLASH_REGEX" : "NO",
+            "SWIFT_INSTALL_MODULE" : "NO",
+            "SWIFT_LIBRARIES_ONLY" : "YES",
+            "SWIFT_PACKAGE_NAME" : "macos",
+            "SWIFT_VERSION" : "5",
+            "SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TAPI_EXTRACT_API_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TARGET_NAME" : "NullaFS",
+            "TARGET_TEMP_DIR_SUFFIX" : "-p",
+            "TVOS_DEPLOYMENT_TARGET" : "15.0",
+            "WATCHOS_DEPLOYMENT_TARGET" : "9.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDCONFIG_1",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_0",
+              "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        },
+        {
+          "buildFiles" : [
+            {
+              "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDPHASE_1::0",
+              "platformFilters" : [
+
+              ],
+              "targetReference" : "PACKAGE-TARGET:NullaShared"
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS::BUILDPHASE_1",
+          "type" : "com.apple.buildphase.frameworks"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "customTasks" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-TARGET:NullaShared",
+          "platformFilters" : [
+
+          ]
+        }
+      ],
+      "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS",
+      "name" : "NullaFS-product",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-PRODUCT:macos_NullaFS.NullaFS",
+        "name" : "$(EXECUTABLE_NAME)",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.tool",
+      "type" : "standard"
+    },
+    "signature" : "ac210e9c014fcacd215cd326923596ef943aae2c1aade3e873c48a1610e1fb51",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "approvedByUser" : "true",
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION" : "YES",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "21.0",
+            "GENERATE_EMBED_IN_CODE_ACCESSORS" : "NO",
+            "GENERATE_RESOURCE_ACCESSORS" : "YES",
+            "IPHONEOS_DEPLOYMENT_TARGET" : "15.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "15.0",
+            "MACOSX_DEPLOYMENT_TARGET" : "14.0",
+            "OTHER_SWIFT_FLAGS" : [
+              "$(inherited)",
+              "$(OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_$(ENABLE_LIBFUZZER))"
+            ],
+            "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES" : [
+              "-Xfrontend",
+              "-entry-point-function-name",
+              "-Xfrontend",
               "NullaApp_main"
             ],
             "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
@@ -1226,7 +1418,7 @@
           "buildFiles" : [
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_0",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_0",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::0",
               "platformFilters" : [
 
@@ -1235,7 +1427,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_1",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_1",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::1",
               "platformFilters" : [
 
@@ -1244,7 +1436,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_2",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_2",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::2",
               "platformFilters" : [
 
@@ -1253,7 +1445,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_3",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_3",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::3",
               "platformFilters" : [
 
@@ -1262,7 +1454,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_4",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_4",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::4",
               "platformFilters" : [
 
@@ -1271,7 +1463,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_5",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_5",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::5",
               "platformFilters" : [
 
@@ -1280,7 +1472,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_4::REF_6",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_6",
               "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp::BUILDPHASE_0::6",
               "platformFilters" : [
 
@@ -1329,7 +1521,7 @@
       "productTypeIdentifier" : "com.apple.product-type.tool",
       "type" : "standard"
     },
-    "signature" : "82bba2df8d8bd57b4e76bedf58c6a0c0dd058bc25c1c1f9d3a3c7cdb42f97dfe",
+    "signature" : "306ddd0ed9fe8f1a147d6a5752b0d54f00b4c0875515c67386e0b0040cee5518",
     "type" : "target"
   },
   {
@@ -1447,7 +1639,7 @@
           "buildFiles" : [
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_0",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_6::REF_0",
               "guid" : "PACKAGE-TARGET:NullaShared::BUILDPHASE_0::0",
               "platformFilters" : [
 
@@ -1456,7 +1648,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_5::REF_1",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_6::REF_1",
               "guid" : "PACKAGE-TARGET:NullaShared::BUILDPHASE_0::1",
               "platformFilters" : [
 
@@ -1488,7 +1680,7 @@
       "productTypeIdentifier" : "org.swift.product-type.library.static",
       "type" : "standard"
     },
-    "signature" : "219ff8d3cb02553a776b80c7216460dc3ed448848315015b9dc68fc839c00eee",
+    "signature" : "d6d38ff193fe07c33f9f0f21567f201551509c810338f73f80be195d206126ae",
     "type" : "target"
   },
   {
@@ -1626,7 +1818,7 @@
           "buildFiles" : [
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_0",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_0",
               "guid" : "PACKAGE-TARGET:NullaExtension-5808D195254AB3C7-testable::BUILDPHASE_0::0",
               "platformFilters" : [
 
@@ -1635,7 +1827,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_1",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_1",
               "guid" : "PACKAGE-TARGET:NullaExtension-5808D195254AB3C7-testable::BUILDPHASE_0::1",
               "platformFilters" : [
 
@@ -1644,7 +1836,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_2",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_2",
               "guid" : "PACKAGE-TARGET:NullaExtension-5808D195254AB3C7-testable::BUILDPHASE_0::2",
               "platformFilters" : [
 
@@ -1653,7 +1845,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_3",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
               "guid" : "PACKAGE-TARGET:NullaExtension-5808D195254AB3C7-testable::BUILDPHASE_0::3",
               "platformFilters" : [
 
@@ -1689,7 +1881,181 @@
       "productTypeIdentifier" : "org.swift.product-type.common.object",
       "type" : "standard"
     },
-    "signature" : "b228ccfb128c9b2fcf7f0492b1f166664b5d8f3e2f5f5e7957105bf738f41ded",
+    "signature" : "02f0e57019af7fe004b6f833908e3ca49f7764dc681e6615439eb370e7959df7",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "approvedByUser" : "true",
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "DEFINES_MODULE" : "YES",
+            "DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION" : "YES",
+            "GENERATE_EMBED_IN_CODE_ACCESSORS" : "YES",
+            "GENERATE_PRELINK_OBJECT_FILE" : "NO",
+            "GENERATE_RESOURCE_ACCESSORS" : "YES",
+            "MODULEMAP_FILE_CONTENTS" : "module NullaFS {\nheader \"NullaFS-Swift.h\"\nexport *\n}",
+            "MODULEMAP_PATH" : "$(GENERATED_MODULEMAP_DIR)/NullaFS.modulemap",
+            "OTHER_SWIFT_FLAGS" : [
+              "$(inherited)",
+              "-Xfrontend",
+              "-entry-point-function-name",
+              "-Xfrontend",
+              "NullaFS_main"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "macos.NullaFS",
+            "PRODUCT_MODULE_NAME" : "NullaFS",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "STRIP_INSTALLED_PRODUCT" : "NO",
+            "SUPPORTS_TEXT_BASED_API" : "NO",
+            "SWIFT_DISABLE_PARSE_AS_LIBRARY" : "NO",
+            "SWIFT_ENABLE_BARE_SLASH_REGEX" : "NO",
+            "SWIFT_LIBRARIES_ONLY" : "YES",
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(GENERATED_MODULEMAP_DIR)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "NullaFS-Swift.h",
+            "SWIFT_PACKAGE_NAME" : "macos",
+            "SWIFT_VERSION" : "5",
+            "SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TAPI_DYLIB_INSTALL_NAME" : "NullaFS",
+            "TAPI_EXTRACT_API_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TARGET_BUILD_DIR" : "$(TARGET_BUILD_DIR)/ExecutableModules",
+            "TARGET_NAME" : "NullaFS-36D470A73F129A9C-testable",
+            "TARGET_TEMP_DIR_SUFFIX" : "-t"
+          },
+          "guid" : "PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable::BUILDCONFIG_0",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "FRAMEWORK_SEARCH_PATHS" : [
+                "$(BUILT_PRODUCTS_DIR)/PackageFrameworks",
+                "$(inherited)"
+              ],
+              "LD_RUNPATH_SEARCH_PATHS" : [
+                "$(RPATH_ORIGIN)",
+                "$(BUILT_PRODUCTS_DIR)/PackageFrameworks",
+                "$(inherited)"
+              ],
+              "LD_WARN_DUPLICATE_LIBRARIES" : "NO",
+              "LIBRARY_SEARCH_PATHS[__platform_filter=windows-msvc]" : [
+                "$(inherited)",
+                "$(TARGET_BUILD_DIR)/ExecutableModules"
+              ],
+              "OTHER_CFLAGS" : [
+                "-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/NullaFS.modulemap",
+                "$(inherited)"
+              ]
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "DEFINES_MODULE" : "YES",
+            "DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION" : "YES",
+            "GENERATE_EMBED_IN_CODE_ACCESSORS" : "YES",
+            "GENERATE_PRELINK_OBJECT_FILE" : "NO",
+            "GENERATE_RESOURCE_ACCESSORS" : "YES",
+            "MODULEMAP_FILE_CONTENTS" : "module NullaFS {\nheader \"NullaFS-Swift.h\"\nexport *\n}",
+            "MODULEMAP_PATH" : "$(GENERATED_MODULEMAP_DIR)/NullaFS.modulemap",
+            "OTHER_SWIFT_FLAGS" : [
+              "$(inherited)",
+              "-Xfrontend",
+              "-entry-point-function-name",
+              "-Xfrontend",
+              "NullaFS_main"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "macos.NullaFS",
+            "PRODUCT_MODULE_NAME" : "NullaFS",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "STRIP_INSTALLED_PRODUCT" : "NO",
+            "SUPPORTS_TEXT_BASED_API" : "NO",
+            "SWIFT_DISABLE_PARSE_AS_LIBRARY" : "NO",
+            "SWIFT_ENABLE_BARE_SLASH_REGEX" : "NO",
+            "SWIFT_LIBRARIES_ONLY" : "YES",
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(GENERATED_MODULEMAP_DIR)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "NullaFS-Swift.h",
+            "SWIFT_PACKAGE_NAME" : "macos",
+            "SWIFT_VERSION" : "5",
+            "SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TAPI_DYLIB_INSTALL_NAME" : "NullaFS",
+            "TAPI_EXTRACT_API_OUTPUT_DIR" : "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/NullaFS.symbolgraphs",
+            "TARGET_BUILD_DIR" : "$(TARGET_BUILD_DIR)/ExecutableModules",
+            "TARGET_NAME" : "NullaFS-36D470A73F129A9C-testable",
+            "TARGET_TEMP_DIR_SUFFIX" : "-t"
+          },
+          "guid" : "PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable::BUILDCONFIG_1",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "FRAMEWORK_SEARCH_PATHS" : [
+                "$(BUILT_PRODUCTS_DIR)/PackageFrameworks",
+                "$(inherited)"
+              ],
+              "LD_RUNPATH_SEARCH_PATHS" : [
+                "$(RPATH_ORIGIN)",
+                "$(inherited)"
+              ],
+              "LD_WARN_DUPLICATE_LIBRARIES" : "NO",
+              "LIBRARY_SEARCH_PATHS[__platform_filter=windows-msvc]" : [
+                "$(inherited)",
+                "$(TARGET_BUILD_DIR)/ExecutableModules"
+              ],
+              "OTHER_CFLAGS" : [
+                "-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/NullaFS.modulemap",
+                "$(inherited)"
+              ]
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "codeSignOnCopy" : "false",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_9::REF_0",
+              "guid" : "PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ],
+              "removeHeadersOnCopy" : "false"
+            }
+          ],
+          "guid" : "PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "customTasks" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-TARGET:NullaShared",
+          "platformFilters" : [
+
+          ]
+        }
+      ],
+      "guid" : "PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable",
+      "name" : "NullaFS",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-TARGET:NullaFS-36D470A73F129A9C-testable",
+        "name" : "$(EXECUTABLE_NAME)",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "org.swift.product-type.common.object",
+      "type" : "standard"
+    },
+    "signature" : "7fdd96c93366983c29b8886c2901194a462b03a6fe6ceab7cffd4c7785f28ec4",
     "type" : "target"
   },
   {
@@ -1827,7 +2193,7 @@
           "buildFiles" : [
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_0",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_0",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::0",
               "platformFilters" : [
 
@@ -1836,7 +2202,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_1",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_1",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::1",
               "platformFilters" : [
 
@@ -1845,7 +2211,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_2",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_2",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::2",
               "platformFilters" : [
 
@@ -1854,7 +2220,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_3",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_3",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::3",
               "platformFilters" : [
 
@@ -1863,7 +2229,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_4",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_4",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::4",
               "platformFilters" : [
 
@@ -1872,7 +2238,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_5",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_5",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::5",
               "platformFilters" : [
 
@@ -1881,7 +2247,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_8::REF_6",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_10::REF_6",
               "guid" : "PACKAGE-TARGET:NullaApp--3D5A6D64C2ABD6DB-testable::BUILDPHASE_0::6",
               "platformFilters" : [
 
@@ -1917,7 +2283,7 @@
       "productTypeIdentifier" : "org.swift.product-type.common.object",
       "type" : "standard"
     },
-    "signature" : "4e66e5b70b9f5f8cb5772362e667ee5d95fea329fcb8e509ddd49560548239b2",
+    "signature" : "ff121316e3f421077482a104d171b2a000a5f6149101323a3df5af4ad8221a9c",
     "type" : "target"
   },
   {
@@ -2091,7 +2457,7 @@
           "buildFiles" : [
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_6::REF_0",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_0",
               "guid" : "PACKAGE-TARGET:NullaShared-6C3C10B85B95DB5E-dynamic::BUILDPHASE_0::0",
               "platformFilters" : [
 
@@ -2100,7 +2466,7 @@
             },
             {
               "codeSignOnCopy" : "false",
-              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_6::REF_1",
+              "fileReference" : "PACKAGE:macos::MAINGROUP::REF_7::REF_1",
               "guid" : "PACKAGE-TARGET:NullaShared-6C3C10B85B95DB5E-dynamic::BUILDPHASE_0::1",
               "platformFilters" : [
 
@@ -2131,7 +2497,7 @@
       "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
       "type" : "standard"
     },
-    "signature" : "11630759a0edb0527cb09d290228a4153a46e7751d86f793b98c4944d04fd939",
+    "signature" : "50e882a23af6155074d890631f0a71a89fb7d7c0e5ea3cb39ae01471255927a0",
     "type" : "target"
   },
   {
@@ -2192,11 +2558,11 @@
       "projectIsPackage" : "true",
       "projectName" : "Aggregate",
       "targets" : [
-        "72fd510ec2d68589f7c8cf7ffcae1a1f8df8c86763830dd7f3882ab605cb3599",
-        "714fbcfabe593ba680f4f65693d9472c915f0ab7c3307b02ae3109c2c5a24d98"
+        "80b4c488686ffc70c9fbc8f17c9544933c5fd5cec022c00adbf01eb9dd6dfc3c",
+        "a271e38dc8738a55369bdf0ad5d2c7ba2ae76e0a88ecbc357437b0d04640b2af"
       ]
     },
-    "signature" : "3cdc725f5af38e9f33b68021e6eaec233c77aa170ea50b615bb0903570dab894",
+    "signature" : "e77d43a06710ecb20f3f8fa5271402b1b59d004c1c97371a871552f212904c12",
     "type" : "project"
   },
   {
@@ -2262,6 +2628,12 @@
           ]
         },
         {
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS",
+          "platformFilters" : [
+
+          ]
+        },
+        {
           "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp",
           "platformFilters" : [
 
@@ -2278,7 +2650,7 @@
       "name" : "AllIncludingTests",
       "type" : "aggregate"
     },
-    "signature" : "72fd510ec2d68589f7c8cf7ffcae1a1f8df8c86763830dd7f3882ab605cb3599",
+    "signature" : "80b4c488686ffc70c9fbc8f17c9544933c5fd5cec022c00adbf01eb9dd6dfc3c",
     "type" : "target"
   },
   {
@@ -2332,6 +2704,12 @@
           ]
         },
         {
+          "guid" : "PACKAGE-PRODUCT:macos_NullaFS.NullaFS",
+          "platformFilters" : [
+
+          ]
+        },
+        {
           "guid" : "PACKAGE-PRODUCT:macos_NullaApp.NullaApp",
           "platformFilters" : [
 
@@ -2348,7 +2726,7 @@
       "name" : "AllExcludingTests",
       "type" : "aggregate"
     },
-    "signature" : "714fbcfabe593ba680f4f65693d9472c915f0ab7c3307b02ae3109c2c5a24d98",
+    "signature" : "a271e38dc8738a55369bdf0ad5d2c7ba2ae76e0a88ecbc357437b0d04640b2af",
     "type" : "target"
   }
 ]

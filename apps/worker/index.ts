@@ -781,15 +781,53 @@ app.put('/api/nodes/:id/content', authMiddleware, async (c) => {
 
 // 1. Initialize R2 Multipart Upload
 app.post('/api/upload/multipart/init', authMiddleware, async (c) => {
+  await ensureSchema(c.env.DB);
   const userId = c.get('userId');
   const body = await c.req.json();
-  const { node_id, mime_type } = body;
+  let {
+    node_id,
+    parent_id,
+    name,
+    name_encrypted,
+    name_iv,
+    mime_type,
+    mime_type_encrypted,
+    size_bytes = 0,
+    chunk_count = 1,
+    is_encrypted = 1,
+  } = body;
 
-  if (!node_id) {
-    return c.json({ error: 'node_id is required' }, 400);
+  const targetNodeId = node_id || generateUUID();
+  const fileName = name || (name_encrypted ? name_encrypted : 'untitled');
+  let cleanParentId = parent_id;
+  if (!cleanParentId || cleanParentId === 'null' || cleanParentId === 'undefined' || cleanParentId === '') {
+    cleanParentId = null;
   }
 
-  const key = `vault/${userId}/${node_id}`;
+  // Ensure node record exists in D1
+  const existing = await c.env.DB.prepare('SELECT id FROM nodes WHERE id = ? AND user_id = ?').bind(targetNodeId, userId).first();
+  if (!existing) {
+    await c.env.DB.prepare(`
+      INSERT INTO nodes (id, user_id, parent_id, name, name_encrypted, name_iv, type, size_bytes, mime_type, mime_type_encrypted, chunk_count, is_encrypted, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'file', ?, ?, ?, ?, ?, 'uploading')
+    `)
+      .bind(
+        targetNodeId,
+        userId,
+        cleanParentId,
+        fileName,
+        name_encrypted || fileName,
+        name_iv || '',
+        size_bytes,
+        mime_type || 'application/octet-stream',
+        mime_type_encrypted || null,
+        chunk_count,
+        is_encrypted
+      )
+      .run();
+  }
+
+  const key = `vault/${userId}/${targetNodeId}`;
   const multipart = await c.env.STORAGE_BUCKET.createMultipartUpload(key, {
     httpMetadata: {
       contentType: mime_type || 'application/octet-stream',
@@ -799,6 +837,7 @@ app.post('/api/upload/multipart/init', authMiddleware, async (c) => {
   return c.json({
     uploadId: multipart.uploadId,
     key: multipart.key,
+    node_id: targetNodeId,
   }, 200);
 });
 
@@ -1111,12 +1150,11 @@ app.delete('/api/nodes/:id/permanent', authMiddleware, async (c) => {
     .bind(nodeId)
     .all();
 
-  const r2Keys: string[] = (chunks.results || []).map((r: any) => r.r2_object_key);
-
-  // Delete from R2 storage bucket
-  if (r2Keys.length > 0) {
-    await c.env.STORAGE_BUCKET.delete(r2Keys);
-  }
+  // Delete from R2 storage bucket (both single contiguous vault object and legacy chunk keys)
+  const r2Keys = (chunks.results || []).map((r: any) => r.r2_object_key as string);
+  const vaultKey = `vault/${userId}/${nodeId}`;
+  const keysToDelete = [vaultKey, ...r2Keys];
+  await c.env.STORAGE_BUCKET.delete(keysToDelete);
 
   // Deduct storage used
   const sizeBytes = (node.size_bytes as number) || 0;
@@ -1156,9 +1194,9 @@ app.post('/api/nodes/purge-bulk', authMiddleware, async (c) => {
       .all();
 
     const r2Keys = (chunks.results || []).map((r: any) => r.r2_object_key as string);
-    if (r2Keys.length > 0) {
-      await c.env.STORAGE_BUCKET.delete(r2Keys);
-    }
+    const vaultKey = `vault/${userId}/${nodeId}`;
+    const keysToDelete = [vaultKey, ...r2Keys];
+    await c.env.STORAGE_BUCKET.delete(keysToDelete);
 
     const sizeBytes = (node.size_bytes as number) || 0;
     totalReclaimedBytes += sizeBytes;
@@ -1202,9 +1240,9 @@ app.post('/api/nodes/purge-all', authMiddleware, async (c) => {
       .all();
 
     const r2Keys = (chunks.results || []).map((r: any) => r.r2_object_key as string);
-    if (r2Keys.length > 0) {
-      await c.env.STORAGE_BUCKET.delete(r2Keys);
-    }
+    const vaultKey = `vault/${userId}/${nodeId}`;
+    const keysToDelete = [vaultKey, ...r2Keys];
+    await c.env.STORAGE_BUCKET.delete(keysToDelete);
 
     await c.env.DB.prepare('DELETE FROM nodes WHERE id = ? AND user_id = ?')
       .bind(nodeId, userId)

@@ -296,17 +296,18 @@ public final class VaultService: ObservableObject, @unchecked Sendable {
                 totalBytes += node.size_bytes
                 
                 var clearName = node.name ?? "File_\(node.id.prefix(6))"
-                if (node.name == nil || clearName.isEmpty) {
-                    if let masterKey = key, let enc = node.name_encrypted, let iv = node.name_iv, !iv.isEmpty {
-                        do {
-                            clearName = try CryptoKitEngine.shared.decryptMetadata(
-                                ciphertextBase64: enc,
-                                ivHex: iv,
-                                masterKey: masterKey
-                            )
-                        } catch {
-                            clearName = "Item_\(node.id.prefix(6))"
+                if let masterKey = key, let enc = node.name_encrypted, !enc.isEmpty, let iv = node.name_iv, !iv.isEmpty {
+                    do {
+                        let decrypted = try CryptoKitEngine.shared.decryptMetadata(
+                            ciphertextBase64: enc,
+                            ivHex: iv,
+                            masterKey: masterKey
+                        )
+                        if !decrypted.isEmpty {
+                            clearName = decrypted
                         }
+                    } catch {
+                        // Keep clearName as fallback if key mismatch
                     }
                 }
                 
@@ -567,6 +568,7 @@ private struct RawNodeItem: Decodable {
     let type: String
     let size_bytes: Int64
     let chunk_count: Int?
+    let is_encrypted: Int?
 }
 
 private struct UploadInitResponse: Decodable {

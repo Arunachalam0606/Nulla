@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "NullaShared", targets: ["NullaShared"]),
         .executable(name: "NullaExtension", targets: ["NullaExtension"]),
+        .executable(name: "NullaFS", targets: ["NullaFS"]),
         .executable(name: "NullaApp", targets: ["NullaApp"])
     ],
     targets: [
@@ -20,6 +21,11 @@ let package = Package(
             name: "NullaExtension",
             dependencies: ["NullaShared"],
             path: "NullaExtension"
+        ),
+        .executableTarget(
+            name: "NullaFS",
+            dependencies: ["NullaShared"],
+            path: "NullaFS"
         ),
         .executableTarget(
             name: "NullaApp",

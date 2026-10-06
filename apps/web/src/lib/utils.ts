@@ -23,3 +23,55 @@ export function formatRelativeDate(dateString: string): string {
 export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+export function deriveMimeFromFilename(filename: string): string {
+  const extension = filename.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    // Video
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    mkv: 'video/x-matroska',
+    m4v: 'video/mp4',
+    avi: 'video/x-msvideo',
+    // Audio
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac',
+    // Image
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    svg: 'image/svg+xml',
+    ico: 'image/x-icon',
+    // Document
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    md: 'text/markdown',
+    json: 'application/json',
+    js: 'text/javascript',
+    ts: 'text/typescript',
+    tsx: 'text/typescript',
+    jsx: 'text/javascript',
+    html: 'text/html',
+    css: 'text/css',
+    xml: 'text/xml',
+    csv: 'text/csv',
+    yaml: 'text/yaml',
+    yml: 'text/yaml',
+    sh: 'text/x-sh',
+    // Archive
+    zip: 'application/zip',
+    tar: 'application/x-tar',
+    gz: 'application/gzip',
+    dmg: 'application/x-apple-diskimage',
+    iso: 'application/x-iso9660-image',
+  };
+
+  return mimeMap[extension] || 'application/octet-stream';
+}

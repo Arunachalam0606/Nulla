@@ -1,5 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 
+import {
+  encryptMetadata,
+  decryptMetadata,
+  encryptChunk,
+} from '@nulla/crypto';
 
 import type { RawNode, DecryptedNode } from '@/schemas/node';
 
@@ -8,18 +13,13 @@ import { useExplorerStore } from '@/stores/explorerStore';
 import type { BreadcrumbItem } from '@/stores/explorerStore';
 
 import {
-  encryptMetadata,
-  decryptMetadata,
-  encryptChunk,
-} from '@nulla/crypto';
-import {
   fetchDirectoryNodes,
   createFolderNode,
   softDeleteNode,
   uploadDirectFile,
-  initUploadSession,
-  uploadChunkBinary,
-  completeUploadSession,
+  initMultipartUpload,
+  uploadMultipartPart,
+  completeMultipartUpload,
 } from '@/lib/api';
 import { generateThumbnail } from '@/lib/thumbnail';
 import { scanFileList } from '@/lib/directoryTraversal';
@@ -73,11 +73,15 @@ export function useExplorerLogic() {
       const decryptedPromises = rawNodes.map(async (raw) => {
         try {
           let name = '';
-          if ((raw.is_encrypted === 1 || !raw.name) && raw.name_encrypted && raw.name_iv) {
-            name = await decryptMetadata(
-              { ciphertext: raw.name_encrypted, iv: raw.name_iv },
-              masterKey
-            );
+          if (raw.name_encrypted && raw.name_iv) {
+            try {
+              name = await decryptMetadata(
+                { ciphertext: raw.name_encrypted, iv: raw.name_iv },
+                masterKey
+              );
+            } catch {
+              name = raw.name || '';
+            }
           } else if (raw.name) {
             name = raw.name;
           }
@@ -87,14 +91,14 @@ export function useExplorerLogic() {
           }
 
           let mimeType: string | undefined = raw.mime_type || undefined;
-          if (!mimeType && raw.mime_type_encrypted && raw.name_iv) {
+          if (raw.mime_type_encrypted && raw.name_iv) {
             try {
               mimeType = await decryptMetadata(
                 { ciphertext: raw.mime_type_encrypted, iv: raw.name_iv },
                 masterKey
               );
             } catch {
-              mimeType = 'application/octet-stream';
+              mimeType = raw.mime_type || 'application/octet-stream';
             }
           }
 
@@ -285,14 +289,16 @@ export function useExplorerLogic() {
         }
 
         if (isE2eeVaultEnabled) {
-          // Zero-Knowledge E2EE: 1 MB chunks encrypted in RAM with AES-256-GCM.
-          // Strict zero-knowledge: NO thumbnails generated or uploaded. R2 holds only opaque ciphertext blocks.
-          const CHUNK_SIZE = 1024 * 1024; // 1 MB
-          const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+          // Zero-Knowledge E2EE: 1 MB blocks encrypted in RAM with AES-256-GCM.
+          // Cloudflare R2 Multipart Upload unifies the encrypted blocks into ONE single object under vault/${userId}/${nodeId}.
+          const CHUNK_SIZE = 1024 * 1024; // 1 MB plaintext slice
+          const totalBlocks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+          const BLOCKS_PER_PART = 5; // Groups of 5 blocks (~5.24 MB) satisfy R2's 5 MiB min part size
+          const totalParts = Math.max(1, Math.ceil(totalBlocks / BLOCKS_PER_PART));
 
           updateUploadQueueItem(uploadId, {
             status: 'uploading',
-            totalChunks,
+            totalChunks: totalParts,
             currentChunk: 1,
             progressPercentage: 5,
           });
@@ -300,33 +306,80 @@ export function useExplorerLogic() {
           const encName = await encryptMetadata(file.name, masterKey);
           const encMime = await encryptMetadata(file.type || 'application/octet-stream', masterKey);
 
-          const session = await initUploadSession(token, {
-            parent_id: targetParentId,
-            name_encrypted: encName.ciphertext,
-            name_iv: encName.iv,
-            mime_type_encrypted: encMime.ciphertext,
-            size_bytes: file.size,
-            total_chunks: totalChunks,
+          const uploadSession = await initMultipartUpload(token, {
+            parentId: targetParentId,
+            nameEncrypted: encName.ciphertext,
+            nameIv: encName.iv,
+            mimeTypeEncrypted: encMime.ciphertext,
+            sizeBytes: file.size,
+            chunkCount: totalBlocks,
           });
 
-          for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
-            const startByte = chunkIdx * CHUNK_SIZE;
-            const endByte = Math.min(file.size, startByte + CHUNK_SIZE);
-            const sliceBlob = file.slice(startByte, endByte);
-            const buffer = await sliceBlob.arrayBuffer();
-            const chunkPlaintext = new Uint8Array(buffer);
+          const uploadKey = uploadSession.key;
+          const r2UploadId = uploadSession.uploadId;
+          const targetNodeId = uploadSession.node_id || uploadKey.split('/').pop() || '';
+          const uploadedParts: Array<{ etag: string; partNumber: number }> = [];
+          let totalEncryptedBytes = 0;
 
-            const encrypted = await encryptChunk(masterKey, masterKeyRaw, chunkIdx, chunkPlaintext);
-            await uploadChunkBinary(token, session.session_id, chunkIdx, encrypted.data);
+          for (let partIndex = 0; partIndex < totalParts; partIndex++) {
+            const partNumber = partIndex + 1;
+            const startBlock = partIndex * BLOCKS_PER_PART;
+            const endBlock = Math.min(totalBlocks, startBlock + BLOCKS_PER_PART);
 
-            const pct = Math.round(((chunkIdx + 1) / totalChunks) * 95);
+            const encryptedBlocksInPart: Uint8Array[] = [];
+
+            for (let blockIndex = startBlock; blockIndex < endBlock; blockIndex++) {
+              const startByte = blockIndex * CHUNK_SIZE;
+              const endByte = Math.min(file.size, startByte + CHUNK_SIZE);
+              const sliceBlob = file.slice(startByte, endByte);
+              const buffer = await sliceBlob.arrayBuffer();
+              const plaintextBytes = new Uint8Array(buffer);
+
+              const encrypted = await encryptChunk(masterKey, masterKeyRaw, blockIndex, plaintextBytes);
+              encryptedBlocksInPart.push(encrypted.data);
+              totalEncryptedBytes += encrypted.data.byteLength;
+            }
+
+            const partBlob = new Blob(encryptedBlocksInPart as BlobPart[], {
+              type: 'application/octet-stream',
+            });
+
+            const partResult = await uploadMultipartPart(
+              token,
+              r2UploadId,
+              uploadKey,
+              partNumber,
+              partBlob,
+              (loaded) => {
+                const partBaseProgress = (partIndex / totalParts) * 90;
+                const partCurrentProgress = (loaded / partBlob.size) * (90 / totalParts);
+                updateUploadQueueItem(uploadId, {
+                  currentChunk: partNumber,
+                  progressPercentage: Math.min(95, Math.round(partBaseProgress + partCurrentProgress)),
+                });
+              }
+            );
+
+            uploadedParts.push({
+              etag: partResult.etag,
+              partNumber,
+            });
+
+            const progressPercentage = Math.round((partNumber / totalParts) * 95);
             updateUploadQueueItem(uploadId, {
-              currentChunk: chunkIdx + 1,
-              progressPercentage: pct,
+              currentChunk: partNumber,
+              progressPercentage,
             });
           }
 
-          const rawResult = await completeUploadSession(token, session.session_id);
+          const commitResult = await completeMultipartUpload(
+            token,
+            r2UploadId,
+            uploadKey,
+            uploadedParts,
+            targetNodeId,
+            totalEncryptedBytes
+          );
 
           updateUserUsage(file.size);
 
@@ -336,17 +389,19 @@ export function useExplorerLogic() {
           });
 
           if (targetParentId === currentParentId) {
+            const rawNode = (commitResult as { node?: RawNode }).node;
+
             const decryptedNode: DecryptedNode = {
-              id: rawResult.id,
-              parentId: rawResult.parent_id,
+              id: rawNode?.id || targetNodeId,
+              parentId: rawNode?.parent_id !== undefined ? rawNode.parent_id : targetParentId,
               name: file.name,
               type: 'file',
               sizeBytes: file.size,
               mimeType: file.type || 'application/octet-stream',
-              chunkCount: totalChunks,
+              chunkCount: totalBlocks,
               status: 'ready',
-              createdAt: rawResult.created_at,
-              updatedAt: rawResult.updated_at,
+              createdAt: rawNode?.created_at || new Date().toISOString(),
+              updatedAt: rawNode?.updated_at || new Date().toISOString(),
             };
             addNode(decryptedNode);
           }

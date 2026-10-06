@@ -55,6 +55,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Register and mount Nulla FileProvider domain in Finder
         registerFileProviderDomain()
+
+        // Register Nulla File System Extension (com.apple.fskit.fsmodule)
+        registerFileSystemExtension()
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -148,6 +151,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    private func registerFileSystemExtension() {
+        Task {
+            appLogger.info("Registering File System Extension with PlugInKit...")
+            let bundleExtURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Extensions/NullaFS.appex")
+            let appExtPath = "/Applications/Nulla.app/Contents/Extensions/NullaFS.appex"
+            let targetPath = FileManager.default.fileExists(atPath: bundleExtURL.path) ? bundleExtURL.path : appExtPath
+            
+            if FileManager.default.fileExists(atPath: targetPath) {
+                let addProc = Process()
+                addProc.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
+                addProc.arguments = ["-a", "-v", targetPath]
+                try? addProc.run()
+                addProc.waitUntilExit()
+
+                let enableProc = Process()
+                enableProc.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
+                enableProc.arguments = ["-e", "use", "-i", "app.nulla.macos.fs"]
+                try? enableProc.run()
+                appLogger.info("Registered and enabled NullaFS extension at \(targetPath).")
+            }
+        }
+    }
+
     // MARK: - Popover Actions
     
     @objc func togglePopover() {

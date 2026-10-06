@@ -369,14 +369,45 @@ export function uploadNodeBinaryContent(
   });
 }
 
-export async function initMultipartUpload(token: string, nodeId: string, mimeType?: string) {
+export async function initMultipartUpload(
+  token: string,
+  spec:
+    | {
+        nodeId?: string;
+        parentId?: string | null;
+        name?: string;
+        nameEncrypted?: string;
+        nameIv?: string;
+        mimeType?: string;
+        mimeTypeEncrypted?: string;
+        sizeBytes?: number;
+        chunkCount?: number;
+      }
+    | string,
+  mimeType?: string
+) {
+  const payload =
+    typeof spec === 'string'
+      ? { node_id: spec, mime_type: mimeType }
+      : {
+          node_id: spec.nodeId,
+          parent_id: spec.parentId,
+          name: spec.name,
+          name_encrypted: spec.nameEncrypted,
+          name_iv: spec.nameIv,
+          mime_type: spec.mimeType,
+          mime_type_encrypted: spec.mimeTypeEncrypted,
+          size_bytes: spec.sizeBytes,
+          chunk_count: spec.chunkCount,
+        };
+
   const response = await fetch(`${API_BASE_URL}/api/upload/multipart/init`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ node_id: nodeId, mime_type: mimeType }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -384,7 +415,7 @@ export async function initMultipartUpload(token: string, nodeId: string, mimeTyp
     throw new Error((err as { error?: string }).error || 'Failed to initialize multipart upload');
   }
 
-  return (await response.json()) as { uploadId: string; key: string };
+  return (await response.json()) as { uploadId: string; key: string; node_id?: string };
 }
 
 export function uploadMultipartPart(

@@ -7,7 +7,7 @@ import type { DecryptedNode } from '@/schemas/node';
 import { useAuthStore } from '@/stores/authStore';
 
 import { fetchNodeChunks, streamChunkBytes } from '@/lib/api';
-import { formatBytes } from '@/lib/utils';
+import { formatBytes, deriveMimeFromFilename } from '@/lib/utils';
 
 import {
   XIcon,
@@ -16,11 +16,7 @@ import {
   ShieldCheckIcon,
   LightningIcon,
   HardDrivesIcon,
-  FileTextIcon,
-  FilePdfIcon,
   FileZipIcon,
-  FileCodeIcon,
-  LockKeyIcon,
 } from '@phosphor-icons/react';
 
 interface MediaPreviewModalProps {
@@ -56,8 +52,11 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
   const directStreamUrl = node ? `${apiBase}/api/nodes/${node.id}/stream${tokenParam}` : '';
   const activeMediaUrl = decryptedUrl || directStreamUrl;
 
+  const resolvedMime = (node?.mimeType && node.mimeType !== 'application/octet-stream')
+    ? node.mimeType
+    : deriveMimeFromFilename(node?.name || '');
   const lowerName = node?.name?.toLowerCase() || '';
-  const mime = node?.mimeType?.toLowerCase() || '';
+  const mime = resolvedMime.toLowerCase();
 
   const isVideo =
     mime.startsWith('video/') ||
@@ -131,42 +130,93 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
     async function resolveEncryptedMedia() {
       if (!node || !token || !masterKey || !masterKeyRaw) return;
 
-      if (node.chunkCount > 0) {
-        try {
-          setIsDecrypting(true);
-          setDecryptProgress(0);
-          const chunkList = await fetchNodeChunks(token, node.id);
+      try {
+        setIsDecrypting(true);
+        setDecryptProgress(0);
 
-          if (chunkList && chunkList.length > 0) {
-            const decryptedBuffers: Uint8Array[] = [];
-            for (let index = 0; index < chunkList.length; index++) {
-              if (isCancelled) return;
-              const chunk = chunkList[index];
-              const encryptedBytes = new Uint8Array(await streamChunkBytes(chunk.id));
-              const decryptedChunk = await decryptChunk(
+        // 1. Fetch single unified encrypted object from /api/nodes/:id/stream
+        const streamUrl = `${apiBase}/api/nodes/${node.id}/stream`;
+        const response = await fetch(streamUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const encryptedBuffer = await response.arrayBuffer();
+          const encryptedBytes = new Uint8Array(encryptedBuffer);
+
+          // Slices are 1 MB plaintext + 16 bytes tag = 1,048,592 bytes for full blocks
+          const ENCRYPTED_BLOCK_SIZE = 1024 * 1024 + 16;
+          const totalBlocks = Math.max(1, Math.ceil(encryptedBytes.byteLength / ENCRYPTED_BLOCK_SIZE));
+          const decryptedSlices: Uint8Array[] = [];
+
+          let isDecryptionSuccess = true;
+          for (let blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+            if (isCancelled) return;
+            const startByte = blockIndex * ENCRYPTED_BLOCK_SIZE;
+            const endByte = Math.min(encryptedBytes.byteLength, startByte + ENCRYPTED_BLOCK_SIZE);
+            const blockCiphertext = encryptedBytes.slice(startByte, endByte);
+
+            try {
+              const decryptedSlice = await decryptChunk(
                 masterKey,
                 masterKeyRaw,
-                chunk.chunk_index,
-                encryptedBytes
+                blockIndex,
+                blockCiphertext
               );
-              decryptedBuffers.push(decryptedChunk);
-              setDecryptProgress(Math.round(((index + 1) / chunkList.length) * 100));
+              decryptedSlices.push(decryptedSlice);
+            } catch {
+              isDecryptionSuccess = false;
+              break;
             }
 
+            setDecryptProgress(Math.round(((blockIndex + 1) / totalBlocks) * 100));
+          }
+
+          if (isDecryptionSuccess && decryptedSlices.length > 0) {
             if (isCancelled) return;
-            const blob = new Blob(decryptedBuffers as BlobPart[], {
-              type: node.mimeType || 'application/octet-stream',
+            const activeMime = deriveMimeFromFilename(node.name);
+            const blob = new Blob(decryptedSlices as BlobPart[], {
+              type: activeMime,
             });
             objectUrlToRevoke = URL.createObjectURL(blob);
             setDecryptedUrl(objectUrlToRevoke);
             setIsDecrypting(false);
             return;
           }
-        } catch (err: unknown) {
-          console.warn('E2EE chunk decryption error:', err);
-        } finally {
-          if (!isCancelled) setIsDecrypting(false);
         }
+
+        // 2. Fallback to legacy chunk endpoints if single object stream wasn't available
+        const chunkList = await fetchNodeChunks(token, node.id).catch(() => []);
+        if (chunkList && chunkList.length > 0) {
+          const decryptedBuffers: Uint8Array[] = [];
+          for (let index = 0; index < chunkList.length; index++) {
+            if (isCancelled) return;
+            const chunk = chunkList[index];
+            const encryptedBytes = new Uint8Array(await streamChunkBytes(chunk.id));
+            const decryptedChunk = await decryptChunk(
+              masterKey,
+              masterKeyRaw,
+              chunk.chunk_index,
+              encryptedBytes
+            );
+            decryptedBuffers.push(decryptedChunk);
+            setDecryptProgress(Math.round(((index + 1) / chunkList.length) * 100));
+          }
+
+          if (isCancelled) return;
+          const activeMime = deriveMimeFromFilename(node.name);
+          const blob = new Blob(decryptedBuffers as BlobPart[], {
+            type: activeMime,
+          });
+          objectUrlToRevoke = URL.createObjectURL(blob);
+          setDecryptedUrl(objectUrlToRevoke);
+          setIsDecrypting(false);
+          return;
+        }
+      } catch (err: unknown) {
+        console.warn('E2EE media resolution error:', err);
+      } finally {
+        if (!isCancelled) setIsDecrypting(false);
       }
 
       setDecryptedUrl('');
@@ -180,7 +230,7 @@ export const MediaPreviewModal = (props: MediaPreviewModalProps) => {
         URL.revokeObjectURL(objectUrlToRevoke);
       }
     };
-  }, [node, token, masterKey, masterKeyRaw]);
+  }, [node, token, masterKey, masterKeyRaw, apiBase]);
 
   useEffect(() => {
     if (!node || !isText || !activeMediaUrl) return;

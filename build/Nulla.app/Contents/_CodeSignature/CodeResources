@@ -11,14 +11,42 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Extensions/NullaFS.appex/Contents/Info.plist</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			QH6qIYLRqGH+iMpCzo2JaZvVEB+BecAAUCna+zwDNEQ=
+			</data>
+		</dict>
+		<key>Extensions/NullaFS.appex/Contents/MacOS/NullaFS</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			RVEnvLLti2fM/9SD9KTdP0Xw6uJC2vLb0nCkvx/Sumg=
+			</data>
+		</dict>
+		<key>Extensions/NullaFS.appex/Contents/Resources/VolumeIcon.icns</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			L7bO2HJqqoALDUObvkTZVMubWoM3JDjtS2LkRze5V2A=
+			</data>
+		</dict>
+		<key>Extensions/NullaFS.appex/Contents/_CodeSignature/CodeResources</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			yRaXexRXFy1XaOVFcp6eD09wdiUfPN9ltCeIpAwyoKE=
+			</data>
+		</dict>
 		<key>PlugIns/NullaExtension.appex</key>
 		<dict>
 			<key>cdhash</key>
 			<data>
-			A4TBQiGLtBNuWhLurspZOB8Qa/4=
+			0AY/U7x2Mm2A2VCIsswPLjdlB0w=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"0384c142218bb4136e5a12eeaeca59381f106bfe"</string>
+			<string>cdhash H"d0063f53bc76326d80d95088b2cc0f2e3765074c"</string>
 		</dict>
 		<key>Resources/Nulla.icns</key>
 		<dict>

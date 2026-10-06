@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Nulla</string>
+    <key>CFBundleExecutable</key>
+    <string>NullaFS</string>
+    <key>CFBundleIdentifier</key>
+    <string>app.nulla.macos.fs</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>NullaFS</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>EXAppExtensionAttributes</key>
+    <dict>
+        <key>EXExtensionPointIdentifier</key>
+        <string>com.apple.fskit.fsmodule</string>
+        <key>FSActivateOptionSyntax</key>
+        <dict>
+            <key>shortOptions</key>
+            <string>u:g:o:</string>
+        </dict>
+        <key>FSPersonalities</key>
+        <dict>
+            <key>NullaFS</key>
+            <dict>
+                <key>FSName</key>
+                <string>Nulla</string>
+            </dict>
+        </dict>
+        <key>FSShortName</key>
+        <string>NullaFS</string>
+        <key>FSSupportsBlockResources</key>
+        <false/>
+        <key>FSSupportsPathURLs</key>
+        <true/>
+    </dict>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+</dict>
+</plist>

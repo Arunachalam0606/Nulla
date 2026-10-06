@@ -34,6 +34,7 @@ public final class VolumeMountService: ObservableObject, @unchecked Sendable {
         Task {
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/localhost"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to eject (every disk whose name is \"localhost\")"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
         }
@@ -1151,11 +1152,11 @@ extension VolumeMountService {
             let mountPoint = "/Volumes/Nulla"
             try? FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
             
-            // Mount exclusively via mount_webdav directly to /Volumes/Nulla
-            // Do NOT use AppleScript "mount volume" which creates a duplicate "localhost" entry in Finder sidebar
+            // Mount exclusively via mount_webdav directly to /Volumes/Nulla as anonymous loopback WebDAV
+            // DO NOT pass guest:@ or user credentials to eliminate "Unsecured Connection" warnings
             await runProcessAsync(
                 executable: "/sbin/mount_webdav",
-                arguments: ["-s", "-v", "Nulla", "http://guest:@127.0.0.1:\(self.port)/Nulla", mountPoint],
+                arguments: ["-s", "-v", "Nulla", "http://127.0.0.1:\(self.port)/Nulla", mountPoint],
                 timeoutSeconds: 4.0
             )
             
@@ -1181,6 +1182,7 @@ extension VolumeMountService {
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/Nulla"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/localhost"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/localhost"])
+            await runProcessAsync(executable: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to eject (every disk whose name is \"localhost\")"])
             await runProcessAsync(executable: "/sbin/umount", arguments: ["-f", "/Volumes/127.0.0.1"])
             await runProcessAsync(executable: "/usr/sbin/diskutil", arguments: ["unmount", "force", "/Volumes/127.0.0.1"])
             

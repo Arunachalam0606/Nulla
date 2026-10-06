@@ -145,7 +145,14 @@ public final class CryptoKitEngine: @unchecked Sendable {
         ivHex: String,
         masterKey: SymmetricKey
     ) throws -> String {
-        guard let combinedData = Data(base64Encoded: ciphertextBase64),
+        var normalized = ciphertextBase64
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while normalized.count % 4 != 0 {
+            normalized.append("=")
+        }
+
+        guard let combinedData = Data(base64Encoded: normalized),
               let ivData = Data(hexString: ivHex) else {
             throw CryptoError.invalidMetadataEncoding
         }

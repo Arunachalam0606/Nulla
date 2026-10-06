@@ -141,23 +141,24 @@ public final class FileProviderEnumerator: NSObject, NSFileProviderEnumerator {
                 var items: [FileProviderItem] = []
                 
                 for rawNode in responsePayload.nodes {
-                    var resolvedName = rawNode.name ?? ""
-                    if resolvedName.isEmpty {
-                        if let enc = rawNode.name_encrypted, !enc.isEmpty,
-                           let iv = rawNode.name_iv, !iv.isEmpty {
-                            do {
-                                resolvedName = try CryptoKitEngine.shared.decryptMetadata(
-                                    ciphertextBase64: enc,
-                                    ivHex: iv,
-                                    masterKey: key
-                                )
-                            } catch {
-                                logger.error("Failed to decrypt node \(rawNode.id): \(error.localizedDescription)")
-                                resolvedName = "Encrypted_\(rawNode.id.prefix(8))"
+                    var resolvedName = ""
+                    if let enc = rawNode.name_encrypted, !enc.isEmpty,
+                       let iv = rawNode.name_iv, !iv.isEmpty {
+                        do {
+                            let decrypted = try CryptoKitEngine.shared.decryptMetadata(
+                                ciphertextBase64: enc,
+                                ivHex: iv,
+                                masterKey: key
+                            )
+                            if !decrypted.isEmpty {
+                                resolvedName = decrypted
                             }
-                        } else {
-                            resolvedName = "File_\(rawNode.id.prefix(8))"
+                        } catch {
+                            logger.error("Failed to decrypt node \(rawNode.id): \(error.localizedDescription)")
                         }
+                    }
+                    if resolvedName.isEmpty {
+                        resolvedName = rawNode.name ?? "File_\(rawNode.id.prefix(8))"
                     }
                     
                     var itemType: UTType = .data
